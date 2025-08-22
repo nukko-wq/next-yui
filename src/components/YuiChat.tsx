@@ -13,7 +13,6 @@ interface Message {
   timestamp: Date
   processing?: boolean
   isTyping?: boolean
-  isStreaming?: boolean
 }
 
 export default function YuiChat() {
@@ -93,86 +92,22 @@ export default function YuiChat() {
     let streamingMessageId: string | null = null
     
     chatClient.onResponse((data: ChatResponse) => {
-      if (data.processing) {
-        // 処理中メッセージの場合
-        setMessages((prev) => {
-          const updated = [...prev]
-          const lastMessage = updated[updated.length - 1]
-          if (lastMessage?.processing) {
-            return updated // 既に処理中メッセージがある場合は更新しない
-          }
-          return [
-            ...updated,
-            {
-              id: Date.now().toString(),
-              type: 'bot',
-              content: data.response,
-              timestamp: new Date(),
-              processing: true,
-            },
-          ]
-        })
-        setIsTyping(true)
-        streamingMessageId = null // リセット
-      } else {
-        // ストリーミングレスポンスの場合
-        if (data.streamComplete) {
-          // ストリーミング完了時はタイプライター効果に切り替え
-          if (streamingMessageId) {
-            stopLipSync() // ストリーミング用の口パクを停止
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === streamingMessageId
-                  ? {
-                      ...msg,
-                      content: data.response,
-                      isStreaming: false,
-                      isTyping: true, // タイプライター効果を有効に
-                    }
-                  : msg
-              )
-            )
-            streamingMessageId = null
-          }
-        } else {
-          // ストリーミング中のメッセージ更新
-          setMessages((prev) => {
-            const updated = prev.filter((msg) => !msg.processing) // 処理中メッセージを削除
-            
-            // 既にストリーミング中のメッセージがある場合は更新する
-            if (streamingMessageId) {
-              const existingIndex = updated.findIndex(msg => msg.id === streamingMessageId)
-              if (existingIndex !== -1) {
-                return [
-                  ...updated.slice(0, existingIndex),
-                  {
-                    ...updated[existingIndex],
-                    content: data.response,
-                    isStreaming: true,
-                  },
-                  ...updated.slice(existingIndex + 1),
-                ]
-              }
-            }
-            
-            // 新しいストリーミングメッセージを作成
-            streamingMessageId = `bot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-            startLipSync() // ストリーミング開始時に口パク開始
-            
-            return [
-              ...updated,
-              {
-                id: streamingMessageId,
-                type: 'bot',
-                content: data.response,
-                timestamp: new Date(),
-                isStreaming: true,
-              },
-            ]
-          })
-        }
-        setIsTyping(false)
-      }
+      // 処理中メッセージの削除
+      setMessages((prev) => prev.filter((msg) => !msg.processing))
+      
+      // 通常のレスポンスの場合（ストリーミング無効）
+      const messageId = `bot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: messageId,
+          type: 'bot',
+          content: data.response,
+          timestamp: new Date(),
+          isTyping: true, // タイプライター効果を有効に
+        },
+      ])
+      setIsTyping(false)
     })
 
     initializeClient()
@@ -319,11 +254,8 @@ export default function YuiChat() {
                       }
                     `}
                     >
-                      {message.type === 'bot' && message.isStreaming ? (
-                        // ストリーミング中は直接表示（タイプライター効果なし）
-                        <span>{message.content}</span>
-                      ) : message.type === 'bot' && message.isTyping ? (
-                        // 最終完成時のみタイプライター効果
+                      {message.type === 'bot' && message.isTyping ? (
+                        // タイプライター効果
                         <TypewriterText
                           key={`typewriter-${message.id}`}
                           text={message.content}
