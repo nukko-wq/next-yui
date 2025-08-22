@@ -124,7 +124,7 @@ export default function YuiChat() {
   })
 
   const sendMessage = async () => {
-    if (!isConnected || !inputMessage.trim() || isTyping) return
+    if (!isConnected || !inputMessage.trim()) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -134,23 +134,17 @@ export default function YuiChat() {
     }
 
     addMessage(userMessage)
-    await chatClient.sendMessage(inputMessage.trim())
     setInputMessage('')
-    setIsTyping(true)
     
-    // 本番環境でのフォーカス問題対策：複数のタイミングでフォーカスを試行
-    const refocusInput = () => {
+    // メッセージをクリアした後、先にフォーカスを設定
+    setTimeout(() => {
       if (messageInputRef.current) {
         messageInputRef.current.focus()
-        messageInputRef.current.click()
       }
-    }
+    }, 50)
     
-    // 即座に実行
-    refocusInput()
-    // 少し遅れて実行
-    setTimeout(refocusInput, 50)
-    setTimeout(refocusInput, 200)
+    await chatClient.sendMessage(userMessage.content)
+    setIsTyping(true)
   }
 
   const clearSession = async () => {
@@ -266,16 +260,12 @@ export default function YuiChat() {
                               )
                             )
                             
+                            // タイプライター完了後にフォーカスを戻す
                             setTimeout(() => {
-                              if (messageInputRef.current) {
+                              if (messageInputRef.current && !messageInputRef.current.disabled) {
                                 messageInputRef.current.focus()
                               }
-                            }, 100)
-                            setTimeout(() => {
-                              if (messageInputRef.current) {
-                                messageInputRef.current.focus()
-                              }
-                            }, 300)
+                            }, 200)
                           }}
                         />
                       ) : (
@@ -299,7 +289,7 @@ export default function YuiChat() {
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="メッセージを入力してください..."
-                disabled={!isConnected || isTyping}
+                disabled={!isConnected}
                 className="flex-1 bg-transparent border-none outline-none text-green-400 placeholder-green-400/50"
                 maxLength={10000}
               />
