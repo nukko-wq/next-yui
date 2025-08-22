@@ -311,12 +311,12 @@ export default function YuiChat() {
         </main>
 
         {/* サイドバー */}
-        <aside className="w-80 space-y-4">
+        <aside className="w-96 space-y-4">
           {/* アバター */}
-          <div className="border border-green-400/30 p-4">
-            <div className="text-center space-y-2">
-              <div className="text-green-300 font-bold">YUI (結)</div>
-              <div className="relative mx-auto w-32 h-32 border border-green-400/30">
+          <div className="border border-green-400/30 p-6">
+            <div className="text-center space-y-4">
+              <div className="text-green-300 font-bold text-lg">YUI (結)</div>
+              <div className="relative mx-auto w-72 h-72 border border-green-400/30 bg-green-400/5">
                 <Image
                   src={
                     avatarState === 'open'
@@ -324,9 +324,9 @@ export default function YuiChat() {
                       : '/yui_mouth_closed.webp'
                   }
                   alt="YUI Avatar"
-                  className="w-full h-full object-cover"
-                  width={128}
-                  height={128}
+                  className="w-full h-full object-cover rounded-sm"
+                  width={288}
+                  height={288}
                 />
               </div>
             </div>
