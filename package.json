@@ -6,8 +6,8 @@
     "dev": "node server.js",
     "dev:next": "next dev --turbopack",
     "build": "next build --turbopack",
-    "start": "NODE_ENV=production node server.js",
-    "start:next": "next start",
+    "start": "next start",
+    "start:custom": "NODE_ENV=production node server.js",
     "lint": "biome check",
     "format": "biome format --write"
   },
