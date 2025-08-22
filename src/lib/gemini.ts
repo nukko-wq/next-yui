@@ -111,57 +111,46 @@ export class GeminiChatBot {
     }
   }
 
-  async *generateResponseStream(
+  async generateResponse(
     sessionId: string,
     message: string,
-  ): AsyncGenerator<ChatResponse, void, unknown> {
+  ): Promise<ChatResponse> {
     if (!this.genAI) {
-      yield {
+      return {
         response:
           'Gemini APIが初期化されていません。API キーを確認してください。',
         success: false,
         error: 'api_not_initialized',
       }
-      return
     }
 
     try {
-      const chatSession = this.getChatSession(sessionId)
-      if (!chatSession) {
-        yield {
-          response: 'チャットセッションの開始に失敗しました。',
-          success: false,
-          error: 'session_failed',
+      const response = await this.genAI.models.generateContent({
+        model: GeminiConfig.MODEL_NAME,
+        contents: message,
+        config: {
+          ...GeminiConfig.GENERATION_CONFIG,
+          systemInstruction: GeminiConfig.SYSTEM_INSTRUCTION,
+        },
+      })
+
+      if (response.text) {
+        return {
+          response: response.text.trim(),
+          success: true,
+          model: 'gemini-2.0-flash-exp',
+          sessionId: sessionId,
         }
-        return
-      }
-
-      // 処理中メッセージを送信
-      yield {
-        response: '思考中...',
-        success: true,
-        processing: true,
-        sessionId: sessionId,
-      }
-
-      // ストリーミングレスポンスを取得
-      const stream = await chatSession.sendMessageStream({ message })
-      let fullResponse = ''
-
-      for await (const chunk of stream) {
-        if (chunk.text) {
-          fullResponse += chunk.text
-          yield {
-            response: fullResponse,
-            success: true,
-            model: 'gemini-2.0-flash-exp',
-            sessionId: sessionId,
-          }
+      } else {
+        return {
+          response: '応答の生成に失敗しました。',
+          success: false,
+          error: 'empty_response',
         }
       }
     } catch (error) {
-      console.error('Error generating streaming response:', error)
-      yield {
+      console.error('Error generating response:', error)
+      return {
         response: `エラーが発生しました: ${String(error)}`,
         success: false,
         error: String(error),

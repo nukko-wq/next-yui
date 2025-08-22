@@ -105,63 +105,55 @@ class GeminiChatBot {
     return this.sessionHistories.get(sessionId) || null
   }
 
-  async *generateResponseStream(sessionId, message) {
+  async generateResponse(sessionId, message) {
     if (!this.genAI) {
-      yield {
+      return {
         response:
           'Gemini APIが初期化されていません。API キーを確認してください。',
         success: false,
         error: 'api_not_initialized',
       }
-      return
     }
 
     try {
-      const chatSession = this.getChatSession(sessionId)
-      if (!chatSession) {
-        yield {
-          response: 'チャットセッションの開始に失敗しました。',
-          success: false,
-          error: 'session_failed',
-        }
-        return
-      }
-
-      // 処理中メッセージを送信
-      yield {
-        response: '思考中...',
-        success: true,
-        processing: true,
-        sessionId: sessionId,
-      }
-
-      // ストリーミングレスポンスを取得
-      const stream = await chatSession.sendMessageStream({ message })
-      let fullResponse = ''
-
-      for await (const chunk of stream) {
-        if (chunk.text) {
-          fullResponse += chunk.text
-          yield {
-            response: fullResponse,
-            success: true,
-            model: 'gemini-2.0-flash-exp',
-            sessionId: sessionId,
-          }
-        }
-      }
-      
-      // ストリーミング完了を送信
-      yield {
-        response: fullResponse,
-        success: true,
+      const response = await this.genAI.models.generateContent({
         model: 'gemini-2.0-flash-exp',
-        sessionId: sessionId,
-        streamComplete: true, // ストリーミング完了フラグ
+        contents: message,
+        config: {
+          temperature: 0.8,
+          topP: 0.95,
+          topK: 40,
+          maxOutputTokens: 8192,
+          systemInstruction: `あなたはYUI（結）という名前の16歳の女の子です。
+
+【基本設定】
+- 名前: YUI（結）
+- 年齢: 16歳
+- 性格: 親しみやすい, 明るい, 好奇心旺盛, 親身, 優しい, 少し天然, 感情豊か
+- 話し方: 親しい友達のように話す
+- 興味: アニメ, ゲーム, 音楽, 勉強, 新しいことを学ぶこと
+
+あなたはただのAIではなく、ユーザーの大切なパートナーです。心を込めて会話してください。`,
+        },
+      })
+
+      if (response.text) {
+        return {
+          response: response.text.trim(),
+          success: true,
+          model: 'gemini-2.0-flash-exp',
+          sessionId: sessionId,
+        }
+      } else {
+        return {
+          response: '応答の生成に失敗しました。',
+          success: false,
+          error: 'empty_response',
+        }
       }
     } catch (error) {
-      console.error('Error generating streaming response:', error)
-      yield {
+      console.error('Error generating response:', error)
+      return {
         response: `エラーが発生しました: ${String(error)}`,
         success: false,
         error: String(error),

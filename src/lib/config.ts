@@ -128,7 +128,6 @@ export interface ChatResponse {
   model?: string
   sessionId?: string
   action?: string
-  streamComplete?: boolean
 }
 
 export interface SessionStatus {

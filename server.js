@@ -63,15 +63,9 @@ app.prepare().then(() => {
           return
         }
 
-        // ストリーミングレスポンスを使用
-        const responseStream = geminiBot.generateResponseStream(
-          sessionId,
-          userMessage,
-        )
-        
-        for await (const chunk of responseStream) {
-          socket.emit('response', chunk)
-        }
+        // 通常のレスポンスを使用（ストリーミング無効化）
+        const response = await geminiBot.generateResponse(sessionId, userMessage)
+        socket.emit('response', response)
       } catch (error) {
         console.error('Error handling message:', error)
         socket.emit('response', {
