@@ -137,6 +137,20 @@ export default function YuiChat() {
     await chatClient.sendMessage(inputMessage.trim())
     setInputMessage('')
     setIsTyping(true)
+    
+    // 本番環境でのフォーカス問題対策：複数のタイミングでフォーカスを試行
+    const refocusInput = () => {
+      if (messageInputRef.current) {
+        messageInputRef.current.focus()
+        messageInputRef.current.click()
+      }
+    }
+    
+    // 即座に実行
+    refocusInput()
+    // 少し遅れて実行
+    setTimeout(refocusInput, 50)
+    setTimeout(refocusInput, 200)
   }
 
   const clearSession = async () => {
@@ -244,7 +258,6 @@ export default function YuiChat() {
                           onComplete={() => {
                             console.log('Typewriter completed for message:', message.id)
                             setAvatarState('closed')
-                            // メッセージのタイプライター状態を終了
                             setMessages((prev) =>
                               prev.map((msg) =>
                                 msg.id === message.id
@@ -252,6 +265,17 @@ export default function YuiChat() {
                                   : msg
                               )
                             )
+                            
+                            setTimeout(() => {
+                              if (messageInputRef.current) {
+                                messageInputRef.current.focus()
+                              }
+                            }, 100)
+                            setTimeout(() => {
+                              if (messageInputRef.current) {
+                                messageInputRef.current.focus()
+                              }
+                            }, 300)
                           }}
                         />
                       ) : (
