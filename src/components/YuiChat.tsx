@@ -198,13 +198,13 @@ export default function YuiChat() {
       </header>
 
       {/* メインコンテンツ */}
-      <div className="flex-1 flex gap-4 p-4 max-h-[calc(100vh-200px)]">
+      <div className="flex-1 flex gap-4 p-4 max-h-[calc(100vh-200px)] md:max-h-[calc(100vh-200px)]">
         {/* チャットエリア */}
-        <main className="flex-1 flex flex-col">
+        <main className="flex-1 flex flex-col md:mr-0">
           {/* チャット表示 */}
           <div
             ref={chatDisplayRef}
-            className="border border-green-400/30 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-green-400/30 scrollbar-track-black h-[calc(100vh-350px)] min-h-[300px]"
+            className="border border-green-400/30 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-green-400/30 scrollbar-track-black h-[calc(100vh-300px)] md:h-[calc(100vh-350px)] min-h-[300px] relative"
           >
             {messages.length === 0 ? (
               <div className="text-center space-y-2 text-green-400/70">
@@ -283,6 +283,23 @@ export default function YuiChat() {
                 ))}
               </div>
             )}
+
+            {/* モバイル用フローティングアバター */}
+            <div className="md:hidden fixed top-20 right-4 z-10">
+              <div className="w-16 h-16 border border-green-400/30 bg-black rounded-sm overflow-hidden">
+                <Image
+                  src={
+                    avatarState === 'open'
+                      ? '/yui_mouth_open.webp'
+                      : '/yui_mouth_closed.webp'
+                  }
+                  alt="YUI Avatar"
+                  className="w-full h-full object-cover"
+                  width={64}
+                  height={64}
+                />
+              </div>
+            </div>
           </div>
 
           {/* 入力エリア */}
@@ -317,8 +334,8 @@ export default function YuiChat() {
           </div>
         </main>
 
-        {/* サイドバー */}
-        <aside className="w-96 space-y-4">
+        {/* デスクトップ用サイドバー */}
+        <aside className="hidden md:block w-96 space-y-4">
           {/* アバター */}
           <div className="border border-green-400/30 p-6">
             <div className="text-center space-y-4">
