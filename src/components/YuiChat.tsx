@@ -110,7 +110,7 @@ export default function YuiChat() {
           ]
         })
         setIsTyping(true)
-        startLipSync()
+        // 処理中メッセージの時は口パクしない
       } else {
         // 最終レスポンスの場合
         setMessages((prev) => {
@@ -281,6 +281,10 @@ export default function YuiChat() {
                           text={message.content}
                           delay={50}
                           enableSound={true}
+                          onStart={() => {
+                            console.log('Typewriter started for message:', message.id)
+                            startLipSync()
+                          }}
                           onComplete={() => {
                             console.log('Typewriter completed for message:', message.id)
                             stopLipSync()

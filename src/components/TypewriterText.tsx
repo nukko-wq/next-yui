@@ -6,6 +6,7 @@ interface TypewriterTextProps {
   text: string
   delay?: number
   onComplete?: () => void
+  onStart?: () => void
   className?: string
   enableSound?: boolean
 }
@@ -14,10 +15,11 @@ export default function TypewriterText({
   text, 
   delay = 30, 
   onComplete,
+  onStart,
   className = '',
   enableSound = false
 }: TypewriterTextProps) {
-  const { displayedText, isTyping } = useTypewriter(text, { delay, onComplete, enableSound })
+  const { displayedText, isTyping } = useTypewriter(text, { delay, onComplete, onStart, enableSound })
 
   return (
     <span className={className}>
