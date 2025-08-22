@@ -63,19 +63,15 @@ app.prepare().then(() => {
           return
         }
 
-        // 処理中メッセージを送信
-        socket.emit('response', {
-          response: '処理中...',
-          success: true,
-          processing: true,
-        })
-
-        // Gemini API からレスポンスを生成
-        const response = await geminiBot.generateResponse(
+        // ストリーミングレスポンスを使用
+        const responseStream = geminiBot.generateResponseStream(
           sessionId,
           userMessage,
         )
-        socket.emit('response', response)
+        
+        for await (const chunk of responseStream) {
+          socket.emit('response', chunk)
+        }
       } catch (error) {
         console.error('Error handling message:', error)
         socket.emit('response', {

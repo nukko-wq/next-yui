@@ -6,11 +6,12 @@ import { useTypeSound } from './useTypeSound'
 interface UseTypewriterOptions {
   delay?: number
   onComplete?: () => void
+  onStart?: () => void
   enableSound?: boolean
 }
 
 export function useTypewriter(text: string, options: UseTypewriterOptions = {}) {
-  const { delay = 30, onComplete, enableSound = false } = options
+  const { delay = 30, onComplete, onStart, enableSound = false } = options
   const { playTypeSound } = useTypeSound()
   const [displayedText, setDisplayedText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -18,10 +19,12 @@ export function useTypewriter(text: string, options: UseTypewriterOptions = {}) 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const completedRef = useRef(false)
   const onCompleteRef = useRef(onComplete)
+  const onStartRef = useRef(onStart)
   const currentTextRef = useRef('')
 
-  // onCompleteコールバックの参照を安定化
+  // コールバックの参照を安定化
   onCompleteRef.current = onComplete
+  onStartRef.current = onStart
 
   useEffect(() => {
     console.log('useTypewriter useEffect triggered with text:', text)
@@ -53,6 +56,9 @@ export function useTypewriter(text: string, options: UseTypewriterOptions = {}) 
     indexRef.current = 0
     completedRef.current = false
     currentTextRef.current = text
+    
+    // タイプライター開始コールバック
+    onStartRef.current?.()
 
     // タイプライター効果
     const typeNextChar = () => {
