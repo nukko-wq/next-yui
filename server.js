@@ -45,7 +45,7 @@ app.prepare().then(() => {
     // 接続確認
     socket.emit('status', {
       connected: true,
-      message: 'Gemini チャットボットに接続しました',
+      message: 'YUI（結）に接続しました',
       sessionId: sessionId,
     })
 
