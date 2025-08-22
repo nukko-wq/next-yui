@@ -172,7 +172,7 @@ export default function YuiChat() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-green-400 font-mono flex flex-col">
+    <div className="min-h-screen bg-black text-green-400 font-mono flex flex-col pb-8">
       {/* ヘッダー */}
       <header className="border-b border-green-400/30 p-4">
         <div className="space-y-1">
@@ -196,13 +196,13 @@ export default function YuiChat() {
       </header>
 
       {/* メインコンテンツ */}
-      <div className="flex-1 flex gap-4 p-4">
+      <div className="flex-1 flex gap-4 p-4 max-h-[calc(100vh-200px)]">
         {/* チャットエリア */}
         <main className="flex-1 flex flex-col">
           {/* チャット表示 */}
           <div
             ref={chatDisplayRef}
-            className="flex-1 border border-green-400/30 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-green-400/30 scrollbar-track-black"
+            className="border border-green-400/30 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-green-400/30 scrollbar-track-black h-[calc(100vh-350px)] min-h-[300px]"
           >
             {messages.length === 0 ? (
               <div className="text-center space-y-2 text-green-400/70">
@@ -279,7 +279,7 @@ export default function YuiChat() {
           </div>
 
           {/* 入力エリア */}
-          <div className="mt-4 space-y-2">
+          <div className="mt-6 mb-6 space-y-2">
             <div className="flex items-center space-x-2">
               <span className="text-green-300">&gt;</span>
               <input
