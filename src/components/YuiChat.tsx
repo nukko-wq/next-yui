@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import type { ChatResponse, SessionStatus } from '@/lib/config'
 import { createChatClient } from '@/lib/chat-client'
-import AuthStatus from './AuthStatus'
 import TypewriterText from './TypewriterText'
 
 interface Message {
@@ -29,9 +28,32 @@ export default function YuiChat() {
 
   const chatDisplayRef = useRef<HTMLDivElement>(null)
   const messageInputRef = useRef<HTMLInputElement>(null)
+  const lipSyncTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const addMessage = useCallback((message: Message) => {
     setMessages((prev) => [...prev, message])
+  }, [])
+
+  // 口パク演出開始
+  const startLipSync = useCallback(() => {
+    if (lipSyncTimerRef.current) {
+      clearInterval(lipSyncTimerRef.current)
+    }
+    
+    let isOpen = false
+    lipSyncTimerRef.current = setInterval(() => {
+      setAvatarState(isOpen ? 'closed' : 'open')
+      isOpen = !isOpen
+    }, 150)
+  }, [])
+
+  // 口パク演出停止
+  const stopLipSync = useCallback(() => {
+    if (lipSyncTimerRef.current) {
+      clearInterval(lipSyncTimerRef.current)
+      lipSyncTimerRef.current = null
+    }
+    setAvatarState('closed')
   }, [])
 
   // Uptime計算
@@ -88,7 +110,7 @@ export default function YuiChat() {
           ]
         })
         setIsTyping(true)
-        setAvatarState('open')
+        startLipSync()
       } else {
         // 最終レスポンスの場合
         setMessages((prev) => {
@@ -105,7 +127,7 @@ export default function YuiChat() {
           ]
         })
         setIsTyping(false)
-        // アバターの状態はタイプライター完了時に変更
+        // タイプライター効果開始で口パク演出を継続
       }
     })
 
@@ -122,6 +144,15 @@ export default function YuiChat() {
       chatDisplayRef.current.scrollTop = chatDisplayRef.current.scrollHeight
     }
   })
+
+  // コンポーネントのクリーンアップ時に口パクタイマーをクリア
+  useEffect(() => {
+    return () => {
+      if (lipSyncTimerRef.current) {
+        clearInterval(lipSyncTimerRef.current)
+      }
+    }
+  }, [])
 
   const sendMessage = async () => {
     if (!isConnected || !inputMessage.trim()) return
@@ -172,7 +203,7 @@ export default function YuiChat() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-green-400 font-mono flex flex-col">
+    <div className="min-h-screen bg-black text-green-400 font-mono flex flex-col pb-8">
       {/* ヘッダー */}
       <header className="border-b border-green-400/30 p-4">
         <div className="space-y-1">
@@ -196,13 +227,13 @@ export default function YuiChat() {
       </header>
 
       {/* メインコンテンツ */}
-      <div className="flex-1 flex gap-4 p-4">
+      <div className="flex-1 flex gap-4 p-4 max-h-[calc(100vh-200px)]">
         {/* チャットエリア */}
         <main className="flex-1 flex flex-col">
           {/* チャット表示 */}
           <div
             ref={chatDisplayRef}
-            className="flex-1 border border-green-400/30 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-green-400/30 scrollbar-track-black"
+            className="border border-green-400/30 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-green-400/30 scrollbar-track-black h-[calc(100vh-350px)] min-h-[300px]"
           >
             {messages.length === 0 ? (
               <div className="text-center space-y-2 text-green-400/70">
@@ -249,9 +280,10 @@ export default function YuiChat() {
                           key={`typewriter-${message.id}`}
                           text={message.content}
                           delay={50}
+                          enableSound={true}
                           onComplete={() => {
                             console.log('Typewriter completed for message:', message.id)
-                            setAvatarState('closed')
+                            stopLipSync()
                             setMessages((prev) =>
                               prev.map((msg) =>
                                 msg.id === message.id
@@ -260,7 +292,6 @@ export default function YuiChat() {
                               )
                             )
                             
-                            // タイプライター完了後にフォーカスを戻す
                             setTimeout(() => {
                               if (messageInputRef.current && !messageInputRef.current.disabled) {
                                 messageInputRef.current.focus()
@@ -279,7 +310,7 @@ export default function YuiChat() {
           </div>
 
           {/* 入力エリア */}
-          <div className="mt-4 space-y-2">
+          <div className="mt-6 mb-6 space-y-2">
             <div className="flex items-center space-x-2">
               <span className="text-green-300">&gt;</span>
               <input
@@ -311,12 +342,12 @@ export default function YuiChat() {
         </main>
 
         {/* サイドバー */}
-        <aside className="w-80 space-y-4">
+        <aside className="w-96 space-y-4">
           {/* アバター */}
-          <div className="border border-green-400/30 p-4">
-            <div className="text-center space-y-2">
-              <div className="text-green-300 font-bold">YUI (結)</div>
-              <div className="relative mx-auto w-32 h-32 border border-green-400/30">
+          <div className="border border-green-400/30 p-6">
+            <div className="text-center space-y-4">
+              <div className="text-green-300 font-bold text-lg">YUI (結)</div>
+              <div className="relative mx-auto w-72 h-72 border border-green-400/30 bg-green-400/5">
                 <Image
                   src={
                     avatarState === 'open'
@@ -324,9 +355,9 @@ export default function YuiChat() {
                       : '/yui_mouth_closed.webp'
                   }
                   alt="YUI Avatar"
-                  className="w-full h-full object-cover"
-                  width={128}
-                  height={128}
+                  className="w-full h-full object-cover rounded-sm"
+                  width={288}
+                  height={288}
                 />
               </div>
             </div>
@@ -343,12 +374,6 @@ export default function YuiChat() {
                 {isConnected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
-          </div>
-
-          {/* 認証状態 */}
-          <div className="border border-green-400/30 p-4">
-            <div className="text-green-300 font-bold mb-2">認証状態</div>
-            <AuthStatus />
           </div>
 
           {/* システム情報 */}
