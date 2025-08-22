@@ -91,7 +91,7 @@ export class GeminiChatBot {
         return {
           response: result.text.trim(),
           success: true,
-          model: 'gemini-2.0-flash-exp',
+          model: 'gemini-2.0-flash',
           sessionId: sessionId,
         }
       } else {
@@ -138,7 +138,7 @@ export class GeminiChatBot {
         return {
           response: response.text.trim(),
           success: true,
-          model: 'gemini-2.0-flash-exp',
+          model: 'gemini-2.0-flash',
           sessionId: sessionId,
         }
       } else {

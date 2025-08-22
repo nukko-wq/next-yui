@@ -71,7 +71,7 @@ class GeminiChatBot {
 
     try {
       const chatSession = this.genAI.chats.create({
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.0-flash',
         config: {
           temperature: 0.8,
           topP: 0.95,
@@ -117,7 +117,7 @@ class GeminiChatBot {
 
     try {
       const response = await this.genAI.models.generateContent({
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.0-flash',
         contents: message,
         config: {
           temperature: 0.8,
@@ -141,7 +141,7 @@ class GeminiChatBot {
         return {
           response: response.text.trim(),
           success: true,
-          model: 'gemini-2.0-flash-exp',
+          model: 'gemini-2.0-flash',
           sessionId: sessionId,
         }
       } else {
