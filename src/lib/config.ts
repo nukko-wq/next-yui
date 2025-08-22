@@ -6,7 +6,7 @@
 export class GeminiConfig {
   // API 設定
   static readonly API_KEY = process.env.GEMINI_API_KEY
-  static readonly MODEL_NAME = 'gemini-2.0-flash-exp'
+  static readonly MODEL_NAME = 'gemini-2.0-flash'
 
   // 生成設定
   static readonly GENERATION_CONFIG = {
