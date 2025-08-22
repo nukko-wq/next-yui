@@ -356,8 +356,7 @@ export default function YuiChat() {
           <div className="border border-green-400/30 p-4">
             <div className="text-green-300 font-bold mb-2">SYSTEM INFO</div>
             <div className="text-xs space-y-1 text-green-400/60">
-              <div>Protocol: WebSocket</div>
-              <div>Port: 3000</div>
+              <div>Protocol: HTTPS/WSS</div>
               <div>
                 Status: <span className="text-green-400">Active</span>
               </div>
