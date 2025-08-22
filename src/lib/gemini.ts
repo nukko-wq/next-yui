@@ -7,6 +7,7 @@ import {
   type ChatSession,
   type GenerativeModel,
   GoogleGenerativeAI,
+  type SafetySetting,
 } from '@google/generative-ai'
 import { type ChatResponse, GeminiConfig } from './config'
 
@@ -34,7 +35,7 @@ export class GeminiChatBot {
       this.model = this.genAI.getGenerativeModel({
         model: GeminiConfig.MODEL_NAME,
         generationConfig: GeminiConfig.GENERATION_CONFIG,
-        safetySettings: GeminiConfig.SAFETY_SETTINGS,
+        safetySettings: GeminiConfig.SAFETY_SETTINGS as SafetySetting[],
         systemInstruction: GeminiConfig.SYSTEM_INSTRUCTION,
       })
 
