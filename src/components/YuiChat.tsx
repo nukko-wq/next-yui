@@ -92,9 +92,6 @@ export default function YuiChat() {
     let streamingMessageId: string | null = null
     
     chatClient.onResponse((data: ChatResponse) => {
-      // 処理中メッセージの削除
-      setMessages((prev) => prev.filter((msg) => !msg.processing))
-      
       // 通常のレスポンスの場合（ストリーミング無効）
       const messageId = `bot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       setMessages((prev) => [
