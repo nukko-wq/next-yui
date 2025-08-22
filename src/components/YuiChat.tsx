@@ -28,9 +28,32 @@ export default function YuiChat() {
 
   const chatDisplayRef = useRef<HTMLDivElement>(null)
   const messageInputRef = useRef<HTMLInputElement>(null)
+  const lipSyncTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const addMessage = useCallback((message: Message) => {
     setMessages((prev) => [...prev, message])
+  }, [])
+
+  // 口パク演出開始
+  const startLipSync = useCallback(() => {
+    if (lipSyncTimerRef.current) {
+      clearInterval(lipSyncTimerRef.current)
+    }
+    
+    let isOpen = false
+    lipSyncTimerRef.current = setInterval(() => {
+      setAvatarState(isOpen ? 'closed' : 'open')
+      isOpen = !isOpen
+    }, 150)
+  }, [])
+
+  // 口パク演出停止
+  const stopLipSync = useCallback(() => {
+    if (lipSyncTimerRef.current) {
+      clearInterval(lipSyncTimerRef.current)
+      lipSyncTimerRef.current = null
+    }
+    setAvatarState('closed')
   }, [])
 
   // Uptime計算
@@ -87,7 +110,7 @@ export default function YuiChat() {
           ]
         })
         setIsTyping(true)
-        setAvatarState('open')
+        startLipSync()
       } else {
         // 最終レスポンスの場合
         setMessages((prev) => {
@@ -104,7 +127,7 @@ export default function YuiChat() {
           ]
         })
         setIsTyping(false)
-        // アバターの状態はタイプライター完了時に変更
+        // タイプライター効果開始で口パク演出を継続
       }
     })
 
@@ -121,6 +144,15 @@ export default function YuiChat() {
       chatDisplayRef.current.scrollTop = chatDisplayRef.current.scrollHeight
     }
   })
+
+  // コンポーネントのクリーンアップ時に口パクタイマーをクリア
+  useEffect(() => {
+    return () => {
+      if (lipSyncTimerRef.current) {
+        clearInterval(lipSyncTimerRef.current)
+      }
+    }
+  }, [])
 
   const sendMessage = async () => {
     if (!isConnected || !inputMessage.trim()) return
@@ -250,7 +282,7 @@ export default function YuiChat() {
                           delay={50}
                           onComplete={() => {
                             console.log('Typewriter completed for message:', message.id)
-                            setAvatarState('closed')
+                            stopLipSync()
                             setMessages((prev) =>
                               prev.map((msg) =>
                                 msg.id === message.id
@@ -259,7 +291,6 @@ export default function YuiChat() {
                               )
                             )
                             
-                            // タイプライター完了後にフォーカスを戻す
                             setTimeout(() => {
                               if (messageInputRef.current && !messageInputRef.current.disabled) {
                                 messageInputRef.current.focus()
