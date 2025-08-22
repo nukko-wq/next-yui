@@ -100,7 +100,7 @@ class HTTPClient implements ChatClient {
       // 接続状態を通知
       this.statusCallback?.({
         connected: true,
-        message: 'Gemini チャットボットに接続しました',
+        message: 'YUI（結）に接続しました',
         sessionId: this.sessionId,
       })
       
