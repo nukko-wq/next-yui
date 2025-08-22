@@ -29,21 +29,14 @@ class GeminiChatBot {
     }
   }
 
-
-  async generateResponse(sessionId, message) {
+  startChatSession(sessionId) {
     if (!this.genAI) {
-      return {
-        response:
-          'Gemini APIが初期化されていません。API キーを確認してください。',
-        success: false,
-        error: 'api_not_initialized',
-      }
+      return null
     }
 
     try {
-      const response = await this.genAI.models.generateContent({
+      const chatSession = this.genAI.chats.create({
         model: 'gemini-2.0-flash',
-        contents: message,
         config: {
           temperature: 0.8,
           topP: 0.95,
@@ -61,10 +54,49 @@ class GeminiChatBot {
 あなたはただのAIではなく、ユーザーの大切なパートナーです。心を込めて会話してください。`,
         },
       })
+      this.sessionHistories.set(sessionId, chatSession)
+      console.log(`Started chat session for ${sessionId}`)
+      return chatSession
+    } catch (error) {
+      console.error('Failed to start chat session:', error)
+      return null
+    }
+  }
 
-      if (response.text) {
+  getChatSession(sessionId) {
+    if (!this.sessionHistories.has(sessionId)) {
+      return this.startChatSession(sessionId)
+    }
+    return this.sessionHistories.get(sessionId) || null
+  }
+
+
+  async generateResponse(sessionId, message) {
+    if (!this.genAI) {
+      return {
+        response:
+          'Gemini APIが初期化されていません。API キーを確認してください。',
+        success: false,
+        error: 'api_not_initialized',
+      }
+    }
+
+    try {
+      const chatSession = this.getChatSession(sessionId)
+      if (!chatSession) {
         return {
-          response: response.text.trim(),
+          response: 'チャットセッションの開始に失敗しました。',
+          success: false,
+          error: 'session_failed',
+        }
+      }
+
+      // セッション履歴を使ってメッセージを送信
+      const result = await chatSession.sendMessage({ message })
+
+      if (result.text) {
+        return {
+          response: result.text.trim(),
           success: true,
           model: 'gemini-2.0-flash',
           sessionId: sessionId,

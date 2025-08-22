@@ -20,7 +20,6 @@ export default function YuiChat() {
   const [isConnected, setIsConnected] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
   const [sessionId, setSessionId] = useState<string>('')
   const [uptime, setUptime] = useState('00:00:00')
   const [startTime] = useState(Date.now())
@@ -89,11 +88,9 @@ export default function YuiChat() {
       })
     })
 
-    let streamingMessageId: string | null = null
-    
     chatClient.onResponse((data: ChatResponse) => {
       // 通常のレスポンスの場合（ストリーミング無効）
-      const messageId = `bot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      const messageId = `bot-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
       setMessages((prev) => [
         ...prev,
         {
@@ -104,7 +101,6 @@ export default function YuiChat() {
           isTyping: true, // タイプライター効果を有効に
         },
       ])
-      setIsTyping(false)
     })
 
     initializeClient()
@@ -151,7 +147,6 @@ export default function YuiChat() {
     }, 50)
     
     await chatClient.sendMessage(userMessage.content)
-    setIsTyping(true)
   }
 
   const clearSession = async () => {
