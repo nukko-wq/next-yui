@@ -3,19 +3,13 @@
  * Google Gemini API との通信を管理するクライアント
  */
 
-import {
-  type ChatSession,
-  type GenerativeModel,
-  GoogleGenerativeAI,
-  type SafetySetting,
-} from '@google/generative-ai'
+import { GoogleGenAI } from '@google/genai'
 import { type ChatResponse, GeminiConfig } from './config'
 
 export class GeminiChatBot {
   private apiKey: string | undefined
-  private genAI: GoogleGenerativeAI | null = null
-  private model: GenerativeModel | null = null
-  private sessionHistories: Map<string, ChatSession> = new Map()
+  private genAI: GoogleGenAI | null = null
+  private sessionHistories: Map<string, any> = new Map()
 
   constructor() {
     this.apiKey = GeminiConfig.API_KEY
@@ -29,16 +23,7 @@ export class GeminiChatBot {
     }
 
     try {
-      this.genAI = new GoogleGenerativeAI(this.apiKey)
-
-      // 設定ファイルから設定を読み込み
-      this.model = this.genAI.getGenerativeModel({
-        model: GeminiConfig.MODEL_NAME,
-        generationConfig: GeminiConfig.GENERATION_CONFIG,
-        safetySettings: GeminiConfig.SAFETY_SETTINGS as SafetySetting[],
-        systemInstruction: GeminiConfig.SYSTEM_INSTRUCTION,
-      })
-
+      this.genAI = new GoogleGenAI({ apiKey: this.apiKey })
       console.log('Gemini API initialized successfully')
       return true
     } catch (error) {
@@ -47,14 +32,18 @@ export class GeminiChatBot {
     }
   }
 
-  private startChatSession(sessionId: string): ChatSession | null {
-    if (!this.model) {
+  private startChatSession(sessionId: string): any | null {
+    if (!this.genAI) {
       return null
     }
 
     try {
-      const chatSession = this.model.startChat({
-        history: [],
+      const chatSession = this.genAI.chats.create({
+        model: GeminiConfig.MODEL_NAME,
+        config: {
+          ...GeminiConfig.GENERATION_CONFIG,
+          systemInstruction: GeminiConfig.SYSTEM_INSTRUCTION,
+        },
       })
       this.sessionHistories.set(sessionId, chatSession)
       console.log(`Started chat session for ${sessionId}`)
@@ -65,7 +54,7 @@ export class GeminiChatBot {
     }
   }
 
-  private getChatSession(sessionId: string): ChatSession | null {
+  private getChatSession(sessionId: string): any | null {
     if (!this.sessionHistories.has(sessionId)) {
       return this.startChatSession(sessionId)
     }
@@ -76,7 +65,7 @@ export class GeminiChatBot {
     sessionId: string,
     message: string,
   ): Promise<ChatResponse> {
-    if (!this.model) {
+    if (!this.genAI) {
       return {
         response:
           'Gemini APIが初期化されていません。API キーを確認してください。',
@@ -96,14 +85,13 @@ export class GeminiChatBot {
       }
 
       // メッセージを送信してレスポンスを取得
-      const result = await chatSession.sendMessage(message)
-      const response = result.response
+      const result = await chatSession.sendMessage({ message })
 
-      if (response.text()) {
+      if (result.text) {
         return {
-          response: response.text().trim(),
+          response: result.text.trim(),
           success: true,
-          model: 'gemini-2.0-flash',
+          model: 'gemini-2.0-flash-exp',
           sessionId: sessionId,
         }
       } else {
@@ -123,6 +111,64 @@ export class GeminiChatBot {
     }
   }
 
+  async *generateResponseStream(
+    sessionId: string,
+    message: string,
+  ): AsyncGenerator<ChatResponse, void, unknown> {
+    if (!this.genAI) {
+      yield {
+        response:
+          'Gemini APIが初期化されていません。API キーを確認してください。',
+        success: false,
+        error: 'api_not_initialized',
+      }
+      return
+    }
+
+    try {
+      const chatSession = this.getChatSession(sessionId)
+      if (!chatSession) {
+        yield {
+          response: 'チャットセッションの開始に失敗しました。',
+          success: false,
+          error: 'session_failed',
+        }
+        return
+      }
+
+      // 処理中メッセージを送信
+      yield {
+        response: '思考中...',
+        success: true,
+        processing: true,
+        sessionId: sessionId,
+      }
+
+      // ストリーミングレスポンスを取得
+      const stream = await chatSession.sendMessageStream({ message })
+      let fullResponse = ''
+
+      for await (const chunk of stream) {
+        if (chunk.text) {
+          fullResponse += chunk.text
+          yield {
+            response: fullResponse,
+            success: true,
+            model: 'gemini-2.0-flash-exp',
+            sessionId: sessionId,
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error generating streaming response:', error)
+      yield {
+        response: `エラーが発生しました: ${String(error)}`,
+        success: false,
+        error: String(error),
+      }
+    }
+  }
+
   clearSession(sessionId: string): void {
     if (this.sessionHistories.has(sessionId)) {
       this.sessionHistories.delete(sessionId)
@@ -131,7 +177,7 @@ export class GeminiChatBot {
   }
 
   isInitialized(): boolean {
-    return this.model !== null
+    return this.genAI !== null
   }
 
   getActiveSessionsCount(): number {
