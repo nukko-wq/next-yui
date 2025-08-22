@@ -286,7 +286,7 @@ export default function YuiChat() {
 
             {/* モバイル用フローティングアバター */}
             <div className="md:hidden fixed top-20 right-4 z-10">
-              <div className="w-16 h-16 border border-green-400/30 bg-black rounded-sm overflow-hidden">
+              <div className="w-20 h-20 border border-green-400/30 bg-black rounded-sm overflow-hidden">
                 <Image
                   src={
                     avatarState === 'open'
@@ -295,8 +295,8 @@ export default function YuiChat() {
                   }
                   alt="YUI Avatar"
                   className="w-full h-full object-cover"
-                  width={64}
-                  height={64}
+                  width={80}
+                  height={80}
                 />
               </div>
             </div>
