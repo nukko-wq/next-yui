@@ -280,6 +280,7 @@ export default function YuiChat() {
                           key={`typewriter-${message.id}`}
                           text={message.content}
                           delay={50}
+                          enableSound={true}
                           onComplete={() => {
                             console.log('Typewriter completed for message:', message.id)
                             stopLipSync()

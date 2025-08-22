@@ -1,14 +1,17 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTypeSound } from './useTypeSound'
 
 interface UseTypewriterOptions {
   delay?: number
   onComplete?: () => void
+  enableSound?: boolean
 }
 
 export function useTypewriter(text: string, options: UseTypewriterOptions = {}) {
-  const { delay = 30, onComplete } = options
+  const { delay = 30, onComplete, enableSound = false } = options
+  const { playTypeSound } = useTypeSound()
   const [displayedText, setDisplayedText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const indexRef = useRef(0)
@@ -57,6 +60,12 @@ export function useTypewriter(text: string, options: UseTypewriterOptions = {}) 
         const newText = text.slice(0, indexRef.current + 1)
         console.log('Typing character:', indexRef.current, newText)
         setDisplayedText(newText)
+        
+        // 音声再生（有効な場合のみ）
+        if (enableSound) {
+          playTypeSound()
+        }
+        
         indexRef.current++
         timeoutRef.current = setTimeout(typeNextChar, delay)
       } else {
