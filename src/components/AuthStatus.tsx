@@ -20,7 +20,7 @@ export default function AuthStatus() {
         <button
           type="button"
           onClick={() => signOut()}
-          className="w-full border border-red-400/30 p-2 hover:bg-red-400/10 transition-colors duration-200 text-red-400 text-xs"
+          className="w-full border border-red-400/30 p-2 hover:bg-red-400/10 transition-colors duration-200 text-red-400 text-xs cursor-pointer"
         >
           サインアウト
         </button>

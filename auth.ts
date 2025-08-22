@@ -1,12 +1,17 @@
 import NextAuth from 'next-auth'
 import Google from 'next-auth/providers/google'
 
-// 許可されたメールアドレスのリスト
-const ALLOWED_EMAILS = [
-  // ここに許可したいメールアドレスを追加
-  'example@gmail.com',
-  'your-email@gmail.com',
-]
+// 環境変数から許可されたメールアドレスのリストを取得
+const getAllowedEmails = (): string[] => {
+  const allowedEmails = process.env.ALLOWED_EMAILS
+  if (!allowedEmails) {
+    console.warn('ALLOWED_EMAILS environment variable is not set')
+    return []
+  }
+  return allowedEmails.split(',').map(email => email.trim())
+}
+
+const ALLOWED_EMAILS = getAllowedEmails()
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [

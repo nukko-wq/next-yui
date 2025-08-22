@@ -1,35 +1,29 @@
-import { auth } from '@/auth'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { auth } from './auth'
 
-export default auth((req) => {
-  const { pathname } = req.nextUrl
-
-  // 認証が必要なパス（ルートパス '/' 以外のすべて）
-  const protectedPaths = ['/']
+export default async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
   // 認証不要のパス
-  const publicPaths = ['/auth/signin', '/auth/error']
+  const publicPaths = ['/auth/signin', '/auth/error', '/api/auth']
 
   // パブリックパスは認証をスキップ
   if (publicPaths.some((path) => pathname.startsWith(path))) {
     return NextResponse.next()
   }
 
-  // プロテクトされたパスで未認証の場合はサインインページにリダイレクト
-  if (
-    protectedPaths.some(
-      (path) => pathname === path || pathname.startsWith(path),
-    )
-  ) {
-    if (!req.auth) {
-      const signInUrl = new URL('/auth/signin', req.url)
-      signInUrl.searchParams.set('callbackUrl', pathname)
-      return NextResponse.redirect(signInUrl)
-    }
+  // 認証状態を確認
+  const session = await auth()
+
+  // ルートパスで未認証の場合はサインインページにリダイレクト
+  if (pathname === '/' && !session) {
+    const signInUrl = new URL('/auth/signin', request.url)
+    signInUrl.searchParams.set('callbackUrl', pathname)
+    return NextResponse.redirect(signInUrl)
   }
 
   return NextResponse.next()
-})
+}
 
 export const config = {
   matcher: [

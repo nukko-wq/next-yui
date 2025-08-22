@@ -28,6 +28,9 @@ NEXTAUTH_URL=https://your-app-name.vercel.app
 AUTH_GOOGLE_ID=Google Cloud Consoleで取得したクライアントID
 AUTH_GOOGLE_SECRET=Google Cloud Consoleで取得したクライアントシークレット
 
+# Email Whitelist (カンマ区切りで複数指定可能)
+ALLOWED_EMAILS=your-email@gmail.com,admin@yourdomain.com,user@example.com
+
 # Gemini API (既存)
 GEMINI_API_KEY=あなたのGemini APIキー
 ```
@@ -40,15 +43,15 @@ openssl rand -base64 32
 
 ## 3. ホワイトリスト設定
 
-`auth.ts`ファイルの`ALLOWED_EMAILS`配列に許可するメールアドレスを追加：
+環境変数`ALLOWED_EMAILS`で許可するメールアドレスを設定：
 
-```typescript
-const ALLOWED_EMAILS = [
-  "your-email@gmail.com",
-  "admin@yourdomain.com",
-  // 他の許可するメールアドレス...
-]
+**ローカル開発** (`.env.local`):
+```bash
+ALLOWED_EMAILS=your-email@gmail.com,admin@yourdomain.com,user@example.com
 ```
+
+**Vercel本番環境**:
+Vercel Dashboard → Settings → Environment Variables で同様に設定
 
 ## 4. デプロイ手順
 
