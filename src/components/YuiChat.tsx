@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import type { ChatResponse, SessionStatus } from '@/lib/config'
 import { createChatClient } from '@/lib/chat-client'
-import AuthStatus from './AuthStatus'
 import TypewriterText from './TypewriterText'
 
 interface Message {
@@ -343,12 +342,6 @@ export default function YuiChat() {
                 {isConnected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
-          </div>
-
-          {/* 認証状態 */}
-          <div className="border border-green-400/30 p-4">
-            <div className="text-green-300 font-bold mb-2">認証状態</div>
-            <AuthStatus />
           </div>
 
           {/* システム情報 */}
