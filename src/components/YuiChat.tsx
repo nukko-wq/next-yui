@@ -5,6 +5,7 @@ import Image from 'next/image'
 import type { ChatResponse, SessionStatus } from '@/lib/config'
 import { createChatClient } from '@/lib/chat-client'
 import AuthStatus from './AuthStatus'
+import TypewriterText from './TypewriterText'
 
 interface Message {
   id: string
@@ -12,6 +13,7 @@ interface Message {
   content: string
   timestamp: Date
   processing?: boolean
+  isTyping?: boolean
 }
 
 export default function YuiChat() {
@@ -98,11 +100,12 @@ export default function YuiChat() {
               type: 'bot',
               content: data.response,
               timestamp: new Date(),
+              isTyping: true, // タイプライター効果を有効にする
             },
           ]
         })
         setIsTyping(false)
-        setAvatarState('closed')
+        // アバターの状態はタイプライター完了時に変更
       }
     })
 
@@ -233,7 +236,27 @@ export default function YuiChat() {
                       }
                     `}
                     >
-                      {message.content}
+                      {message.type === 'bot' && message.isTyping ? (
+                        <TypewriterText
+                          key={`typewriter-${message.id}`}
+                          text={message.content}
+                          delay={50}
+                          onComplete={() => {
+                            console.log('Typewriter completed for message:', message.id)
+                            setAvatarState('closed')
+                            // メッセージのタイプライター状態を終了
+                            setMessages((prev) =>
+                              prev.map((msg) =>
+                                msg.id === message.id
+                                  ? { ...msg, isTyping: false }
+                                  : msg
+                              )
+                            )
+                          }}
+                        />
+                      ) : (
+                        message.content
+                      )}
                     </div>
                   </div>
                 ))}
