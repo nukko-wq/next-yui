@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { io, type Socket } from 'socket.io-client'
 import type { ChatResponse, SessionStatus } from '@/lib/config'
+import { createChatClient } from '@/lib/chat-client'
 import AuthStatus from './AuthStatus'
 
 interface Message {
@@ -15,7 +15,7 @@ interface Message {
 }
 
 export default function YuiChat() {
-  const [socket, setSocket] = useState<Socket | null>(null)
+  const [chatClient] = useState(() => createChatClient())
   const [isConnected, setIsConnected] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
@@ -47,26 +47,16 @@ export default function YuiChat() {
     return () => clearInterval(timer)
   }, [startTime])
 
-  // Socket.IO接続
+  // Chat Client接続
   useEffect(() => {
-    const newSocket = io('/', {
-      path: '/socket.io/',
-    })
+    const initializeClient = async () => {
+      await chatClient.connect()
+      setIsConnected(chatClient.isConnected())
+    }
 
-    setSocket(newSocket)
-
-    newSocket.on('connect', () => {
-      setIsConnected(true)
-      console.log('Connected to server')
-    })
-
-    newSocket.on('disconnect', () => {
-      setIsConnected(false)
-      console.log('Disconnected from server')
-    })
-
-    newSocket.on('status', (data: SessionStatus) => {
+    chatClient.onStatusChange((data: SessionStatus) => {
       setSessionId(data.sessionId)
+      setIsConnected(true)
       addMessage({
         id: Date.now().toString(),
         type: 'system',
@@ -75,7 +65,7 @@ export default function YuiChat() {
       })
     })
 
-    newSocket.on('response', (data: ChatResponse) => {
+    chatClient.onResponse((data: ChatResponse) => {
       if (data.processing) {
         // 処理中メッセージの場合
         setMessages((prev) => {
@@ -116,10 +106,12 @@ export default function YuiChat() {
       }
     })
 
+    initializeClient()
+
     return () => {
-      newSocket.close()
+      chatClient.disconnect()
     }
-  }, [addMessage])
+  }, [addMessage, chatClient])
 
   // メッセージ追加時に自動スクロール
   useEffect(() => {
@@ -128,8 +120,8 @@ export default function YuiChat() {
     }
   })
 
-  const sendMessage = () => {
-    if (!socket || !inputMessage.trim() || isTyping) return
+  const sendMessage = async () => {
+    if (!isConnected || !inputMessage.trim() || isTyping) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -139,14 +131,14 @@ export default function YuiChat() {
     }
 
     addMessage(userMessage)
-    socket.emit('message', { message: inputMessage.trim() })
+    await chatClient.sendMessage(inputMessage.trim())
     setInputMessage('')
     setIsTyping(true)
   }
 
-  const clearSession = () => {
-    if (!socket) return
-    socket.emit('clear_session')
+  const clearSession = async () => {
+    if (!isConnected) return
+    await chatClient.clearSession()
     setMessages([])
   }
 

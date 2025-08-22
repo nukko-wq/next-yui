@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const url = new URL(request.url)
-    const sessionId = url.searchParams.get('sessionId')
+    const body = await request.json()
+    const { sessionId } = body
 
     if (!sessionId) {
       return NextResponse.json(
