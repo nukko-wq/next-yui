@@ -499,7 +499,7 @@ export default function YuiChat() {
                 value={inputMessage}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyPress}
-                placeholder="メッセージを入力するか、/ でコマンドを使用..."
+                placeholder="メッセージを入力してください..."
                 disabled={!isConnected}
                 className="flex-1 bg-transparent border-none outline-none text-green-400 placeholder-green-400/50"
               />
