@@ -505,6 +505,13 @@ export default function YuiChat() {
               />
             </div>
             
+            {/* ヒントまたはコマンドサジェスト */}
+            {!showCommandSuggestions && (
+              <div className="text-xs text-green-400/60 mt-1 ml-4">
+                / for commands
+              </div>
+            )}
+            
             {/* コマンドサジェスト */}
             <CommandSuggestions
               suggestions={commandSuggestions}
