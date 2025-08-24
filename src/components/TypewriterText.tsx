@@ -11,22 +11,25 @@ interface TypewriterTextProps {
   enableSound?: boolean
 }
 
-export default function TypewriterText({ 
-  text, 
-  delay = 30, 
+export default function TypewriterText({
+  text,
+  delay = 30,
   onComplete,
   onStart,
   className = '',
-  enableSound = false
+  enableSound = false,
 }: TypewriterTextProps) {
-  const { displayedText, isTyping } = useTypewriter(text, { delay, onComplete, onStart, enableSound })
+  const { displayedText, isTyping } = useTypewriter(text, {
+    delay,
+    onComplete,
+    onStart,
+    enableSound,
+  })
 
   return (
     <span className={className}>
       {displayedText}
-      {isTyping && (
-        <span className="animate-pulse text-green-400 ml-1">●</span>
-      )}
+      {isTyping && <span className="animate-pulse text-green-400 ml-1">●</span>}
     </span>
   )
 }

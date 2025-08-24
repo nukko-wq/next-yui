@@ -8,7 +8,7 @@ const getAllowedEmails = (): string[] => {
     console.warn('ALLOWED_EMAILS environment variable is not set')
     return []
   }
-  return allowedEmails.split(',').map(email => email.trim())
+  return allowedEmails.split(',').map((email) => email.trim())
 }
 
 const ALLOWED_EMAILS = getAllowedEmails()

@@ -70,7 +70,6 @@ class GeminiChatBot {
     return this.sessionHistories.get(sessionId) || null
   }
 
-
   async generateResponse(sessionId, message) {
     if (!this.genAI) {
       return {

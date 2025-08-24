@@ -10,7 +10,10 @@ interface UseTypewriterOptions {
   enableSound?: boolean
 }
 
-export function useTypewriter(text: string, options: UseTypewriterOptions = {}) {
+export function useTypewriter(
+  text: string,
+  options: UseTypewriterOptions = {},
+) {
   const { delay = 30, onComplete, onStart, enableSound = false } = options
   const { playTypeSound } = useTypeSound()
   const [displayedText, setDisplayedText] = useState('')
@@ -28,7 +31,7 @@ export function useTypewriter(text: string, options: UseTypewriterOptions = {}) 
 
   useEffect(() => {
     console.log('useTypewriter useEffect triggered with text:', text)
-    
+
     // テキストが空の場合
     if (!text) {
       setDisplayedText('')
@@ -56,7 +59,7 @@ export function useTypewriter(text: string, options: UseTypewriterOptions = {}) 
     indexRef.current = 0
     completedRef.current = false
     currentTextRef.current = text
-    
+
     // タイプライター開始コールバック
     onStartRef.current?.()
 
@@ -66,12 +69,12 @@ export function useTypewriter(text: string, options: UseTypewriterOptions = {}) 
         const newText = text.slice(0, indexRef.current + 1)
         console.log('Typing character:', indexRef.current, newText)
         setDisplayedText(newText)
-        
+
         // 音声再生（有効な場合のみ）
         if (enableSound) {
           playTypeSound()
         }
-        
+
         indexRef.current++
         timeoutRef.current = setTimeout(typeNextChar, delay)
       } else {

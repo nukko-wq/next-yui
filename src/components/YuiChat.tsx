@@ -38,7 +38,7 @@ export default function YuiChat() {
     if (lipSyncTimerRef.current) {
       clearInterval(lipSyncTimerRef.current)
     }
-    
+
     let isOpen = false
     lipSyncTimerRef.current = setInterval(() => {
       setAvatarState(isOpen ? 'closed' : 'open')
@@ -138,14 +138,14 @@ export default function YuiChat() {
 
     addMessage(userMessage)
     setInputMessage('')
-    
+
     // メッセージをクリアした後、先にフォーカスを設定
     setTimeout(() => {
       if (messageInputRef.current) {
         messageInputRef.current.focus()
       }
     }, 50)
-    
+
     await chatClient.sendMessage(userMessage.content)
   }
 
@@ -254,22 +254,31 @@ export default function YuiChat() {
                           delay={50}
                           enableSound={true}
                           onStart={() => {
-                            console.log('Typewriter started for message:', message.id)
+                            console.log(
+                              'Typewriter started for message:',
+                              message.id,
+                            )
                             startLipSync()
                           }}
                           onComplete={() => {
-                            console.log('Typewriter completed for message:', message.id)
+                            console.log(
+                              'Typewriter completed for message:',
+                              message.id,
+                            )
                             stopLipSync()
                             setMessages((prev) =>
                               prev.map((msg) =>
                                 msg.id === message.id
                                   ? { ...msg, isTyping: false }
-                                  : msg
-                              )
+                                  : msg,
+                              ),
                             )
-                            
+
                             setTimeout(() => {
-                              if (messageInputRef.current && !messageInputRef.current.disabled) {
+                              if (
+                                messageInputRef.current &&
+                                !messageInputRef.current.disabled
+                              ) {
                                 messageInputRef.current.focus()
                               }
                             }, 200)
