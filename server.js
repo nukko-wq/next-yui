@@ -64,7 +64,10 @@ app.prepare().then(() => {
         }
 
         // 通常のレスポンスを使用（ストリーミング無効化）
-        const response = await geminiBot.generateResponse(sessionId, userMessage)
+        const response = await geminiBot.generateResponse(
+          sessionId,
+          userMessage,
+        )
         socket.emit('response', response)
       } catch (error) {
         console.error('Error handling message:', error)

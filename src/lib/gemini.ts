@@ -3,13 +3,13 @@
  * Google Gemini API との通信を管理するクライアント
  */
 
-import { GoogleGenAI } from '@google/genai'
+import { type Chat, type Content, GoogleGenAI } from '@google/genai'
 import { type ChatResponse, GeminiConfig } from './config'
 
 export class GeminiChatBot {
   private apiKey: string | undefined
   private genAI: GoogleGenAI | null = null
-  private sessionHistories: Map<string, any> = new Map()
+  private sessionChats: Map<string, Chat> = new Map()
 
   constructor() {
     this.apiKey = GeminiConfig.API_KEY
@@ -32,6 +32,33 @@ export class GeminiChatBot {
     }
   }
 
+  /**
+   * セッション用のチャットインスタンスを取得または作成
+   */
+  private getOrCreateChat(sessionId: string): Chat {
+    if (!this.genAI) {
+      throw new Error('Gemini API not initialized')
+    }
+
+    // 既存のチャットがあれば返す
+    const existingChat = this.sessionChats.get(sessionId)
+    if (existingChat) {
+      return existingChat
+    }
+
+    // 新しいチャットセッションを作成
+    const chat = this.genAI.chats.create({
+      model: GeminiConfig.MODEL_NAME,
+      config: {
+        ...GeminiConfig.GENERATION_CONFIG,
+        systemInstruction: GeminiConfig.SYSTEM_INSTRUCTION,
+      },
+    })
+
+    this.sessionChats.set(sessionId, chat)
+    console.log(`Created new chat session for ${sessionId}`)
+    return chat
+  }
 
   async generateResponse(
     sessionId: string,
@@ -47,20 +74,19 @@ export class GeminiChatBot {
     }
 
     try {
-      const response = await this.genAI.models.generateContent({
-        model: GeminiConfig.MODEL_NAME,
-        contents: message,
-        config: {
-          ...GeminiConfig.GENERATION_CONFIG,
-          systemInstruction: GeminiConfig.SYSTEM_INSTRUCTION,
-        },
+      // セッション固有のチャットインスタンスを取得
+      const chat = this.getOrCreateChat(sessionId)
+
+      // チャット履歴を保持してメッセージ送信
+      const response = await chat.sendMessage({
+        message: message,
       })
 
       if (response.text) {
         return {
           response: response.text.trim(),
           success: true,
-          model: 'gemini-2.0-flash',
+          model: GeminiConfig.MODEL_NAME,
           sessionId: sessionId,
         }
       } else {
@@ -80,10 +106,27 @@ export class GeminiChatBot {
     }
   }
 
+  /**
+   * セッションの履歴を取得
+   */
+  getSessionHistory(sessionId: string): Content[] {
+    const chat = this.sessionChats.get(sessionId)
+    if (!chat) {
+      return []
+    }
+
+    try {
+      return chat.getHistory()
+    } catch (error) {
+      console.error('Error getting session history:', error)
+      return []
+    }
+  }
+
   clearSession(sessionId: string): void {
-    if (this.sessionHistories.has(sessionId)) {
-      this.sessionHistories.delete(sessionId)
-      console.log(`Cleared session for ${sessionId}`)
+    if (this.sessionChats.has(sessionId)) {
+      this.sessionChats.delete(sessionId)
+      console.log(`Cleared chat session for ${sessionId}`)
     }
   }
 
@@ -92,7 +135,7 @@ export class GeminiChatBot {
   }
 
   getActiveSessionsCount(): number {
-    return this.sessionHistories.size
+    return this.sessionChats.size
   }
 
   // 設定の検証

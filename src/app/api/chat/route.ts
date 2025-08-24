@@ -1,6 +1,43 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getGeminiBot } from '@/lib/gemini'
 
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const sessionId = searchParams.get('sessionId')
+
+    if (!sessionId) {
+      return NextResponse.json(
+        {
+          response: 'セッションIDが必要です。',
+          success: false,
+          error: 'missing_session_id',
+        },
+        { status: 400 },
+      )
+    }
+
+    const geminiBot = getGeminiBot()
+    const history = geminiBot.getSessionHistory(sessionId)
+
+    return NextResponse.json({
+      history,
+      success: true,
+      sessionId,
+    })
+  } catch (error) {
+    console.error('Error getting chat history:', error)
+    return NextResponse.json(
+      {
+        response: `履歴取得中にエラーが発生しました: ${String(error)}`,
+        success: false,
+        error: String(error),
+      },
+      { status: 500 },
+    )
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()

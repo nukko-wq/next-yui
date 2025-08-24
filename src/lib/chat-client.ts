@@ -3,7 +3,9 @@
 import type { ChatResponse, SessionStatus } from './config'
 
 // 本番環境かどうかを判定
-const isProduction = process.env.NODE_ENV === 'production' || typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+const isProduction =
+  process.env.NODE_ENV === 'production' ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost')
 
 interface ChatClient {
   connect(): Promise<void>
@@ -27,7 +29,7 @@ class SocketIOClient implements ChatClient {
     if (typeof window === 'undefined') return
 
     const { io } = await import('socket.io-client')
-    
+
     this.socket = io('/', {
       path: '/socket.io/',
     })
@@ -96,14 +98,14 @@ class HTTPClient implements ChatClient {
       // セッションID生成
       this.sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       this.connected = true
-      
+
       // 接続状態を通知
       this.statusCallback?.({
         connected: true,
         message: 'YUI（結）に接続しました',
         sessionId: this.sessionId,
       })
-      
+
       console.log('Connected via HTTP API')
     } catch (error) {
       console.error('Failed to connect via HTTP API:', error)
