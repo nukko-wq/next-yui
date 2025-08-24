@@ -1,10 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { createChatClient } from '@/lib/chat-client'
 import type { ChatResponse, SessionStatus } from '@/lib/config'
+import { createCommandManager } from '@/lib/commands'
+import type { ChatContext, CommandSuggestion } from '@/lib/commands'
 import TypewriterText from './TypewriterText'
+import CommandSuggestions from './CommandSuggestions'
 
 interface Message {
   id: string
@@ -17,6 +20,7 @@ interface Message {
 
 export default function YuiChat() {
   const [chatClient] = useState(() => createChatClient())
+  const commandManager = useMemo(() => createCommandManager(), [])
   const [isConnected, setIsConnected] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
@@ -26,6 +30,8 @@ export default function YuiChat() {
   const [avatarState, setAvatarState] = useState<'closed' | 'open'>('closed')
   const [isUserScrolling, setIsUserScrolling] = useState(false)
   const [isBotTyping, setIsBotTyping] = useState(false)
+  const [commandSuggestions, setCommandSuggestions] = useState<CommandSuggestion[]>([])
+  const [showCommandSuggestions, setShowCommandSuggestions] = useState(false)
 
   const chatDisplayRef = useRef<HTMLDivElement>(null)
   const messageInputRef = useRef<HTMLInputElement>(null)
@@ -193,13 +199,69 @@ export default function YuiChat() {
     }
   }, [])
 
+  const clearSession = useCallback(async () => {
+    if (!isConnected) return
+    await chatClient.clearSession()
+    setMessages([])
+  }, [isConnected, chatClient])
+
+  // ChatContext を作成
+  const createChatContext = useCallback((): ChatContext => ({
+    clearSession: clearSession,
+    addMessage: addMessage,
+    setMessages: setMessages,
+    setInputMessage: setInputMessage,
+    sessionId: sessionId,
+    isConnected: isConnected
+  }), [clearSession, addMessage, sessionId, isConnected])
+
+  // 入力変更時のフィルタリング
+  const handleInputChange = useCallback((value: string) => {
+    setInputMessage(value)
+    
+    if (value.startsWith('/') && value.length > 1) {
+      // "/"以降の文字でフィルタリング
+      const query = value.slice(1).toLowerCase()
+      const filtered = commandManager.getSuggestions(value)
+        .sort((a, b) => a.command.name.localeCompare(b.command.name))
+      
+      setCommandSuggestions(filtered)
+      setShowCommandSuggestions(filtered.length > 0)
+    } else if (value === '/') {
+      // "/" だけの場合は全コマンドを表示
+      const allCommands = commandManager.getAllCommands()
+        .filter(cmd => !cmd.hidden)
+        .map(cmd => ({ command: cmd, highlight: cmd.name, description: cmd.description }))
+        .sort((a, b) => a.command.name.localeCompare(b.command.name))
+      
+      setCommandSuggestions(allCommands)
+      setShowCommandSuggestions(true)
+    } else {
+      setShowCommandSuggestions(false)
+    }
+  }, [commandManager])
+
   const sendMessage = async () => {
     if (!isConnected || !inputMessage.trim()) return
+
+    const message = inputMessage.trim()
+
+    // スラッシュコマンドかどうかチェック
+    if (commandManager.isCommand(message)) {
+      const context = createChatContext()
+      const executed = await commandManager.execute(message, context)
+      
+      if (executed) {
+        setInputMessage('')
+        setShowCommandSuggestions(false)
+        return
+      }
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: inputMessage.trim(),
+      content: message,
       timestamp: new Date(),
     }
 
@@ -216,13 +278,55 @@ export default function YuiChat() {
     await chatClient.sendMessage(userMessage.content)
   }
 
-  const clearSession = async () => {
-    if (!isConnected) return
-    await chatClient.clearSession()
-    setMessages([])
-  }
+  // コマンド実行
+  const executeCommand = useCallback(async (command: any) => {
+    const context = createChatContext()
+    try {
+      await command.execute([], context)
+    } catch (error) {
+      context.addMessage({
+        id: Date.now().toString(),
+        type: 'system',
+        content: `❌ コマンド実行エラー: ${String(error)}`,
+        timestamp: new Date()
+      })
+    }
+    
+    setInputMessage('')
+    setShowCommandSuggestions(false)
+  }, [createChatContext])
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  // キーボード操作
+  const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showCommandSuggestions && commandSuggestions.length > 0) {
+      switch (e.key) {
+        case 'Tab':
+          e.preventDefault()
+          // 一番上のコマンドを補完
+          const topCommand = commandSuggestions[0]?.command
+          if (topCommand) {
+            setInputMessage(`/${topCommand.name} `)
+            setShowCommandSuggestions(false)
+          }
+          break
+          
+        case 'Enter':
+          e.preventDefault()
+          // 一番上のコマンドを実行
+          const selectedCommand = commandSuggestions[0]?.command
+          if (selectedCommand) {
+            executeCommand(selectedCommand)
+          }
+          break
+          
+        case 'Escape':
+          setShowCommandSuggestions(false)
+          break
+      }
+      return
+    }
+    
+    // 既存のEnterキー処理
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       sendMessage()
@@ -230,7 +334,7 @@ export default function YuiChat() {
       e.preventDefault()
       clearSession()
     }
-  }
+  }, [showCommandSuggestions, commandSuggestions, executeCommand, sendMessage, clearSession])
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('ja-JP', {
@@ -386,34 +490,39 @@ export default function YuiChat() {
           </div>
 
           {/* 入力エリア */}
-          <div className="mt-6 mb-6 space-y-2">
-            <div className="flex items-center space-x-2">
+          <div className="mt-6 mb-6 relative">
+            <div className="flex items-center border border-green-400/30 rounded px-3 py-2 space-x-2">
               <span className="text-green-300">&gt;</span>
               <input
                 ref={messageInputRef}
                 type="text"
                 value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
+                onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="メッセージを入力してください..."
                 disabled={!isConnected}
                 className="flex-1 bg-transparent border-none outline-none text-green-400 placeholder-green-400/50"
-                maxLength={10000}
               />
             </div>
-
-            {/* コントロール */}
-            <div className="flex justify-between items-center text-xs text-green-400/60">
-              <div className="flex items-center space-x-4">
-                <span>
-                  <span className="text-green-300">ENTER</span> = Send
-                </span>
-                <span>
-                  <span className="text-green-300">CTRL+K</span> = Clear
-                </span>
+            
+            {/* ヒントまたはコマンドサジェスト */}
+            {!showCommandSuggestions && (
+              <div className="text-xs text-green-400/60 mt-1 ml-4">
+                / for commands
               </div>
-              <div>{inputMessage.length} / 10000</div>
-            </div>
+            )}
+            
+            {/* コマンドサジェスト */}
+            <CommandSuggestions
+              suggestions={commandSuggestions}
+              visible={showCommandSuggestions}
+              inputElement={messageInputRef.current}
+              onSelect={(command) => executeCommand(command)}
+              onComplete={(commandName) => {
+                setInputMessage(`/${commandName} `)
+                setShowCommandSuggestions(false)
+              }}
+            />
           </div>
         </main>
 
