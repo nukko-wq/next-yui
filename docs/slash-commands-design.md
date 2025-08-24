@@ -155,6 +155,23 @@ export const helpCommand: SlashCommand = {
 }
 ```
 
+## コマンドサジェストUI仕様
+
+### 基本要件
+
+Claude Code風のコマンドサジェストUIを実装します：
+
+1. **表示条件**: 入力欄で「/」を入力した時に表示
+2. **表示位置**: input要素の直下にドロップダウン形式
+3. **最大表示数**: 10件まで
+4. **ソート**: アルファベット順
+5. **フィルタリング**: 入力に応じてリアルタイムでフィルタ
+6. **キーボード操作**:
+   - Tab: 候補の一番上のコマンドを補完
+   - Enter: 候補の一番上のコマンドを実行
+   - 矢印キー: 候補の選択移動（将来実装）
+   - Escape: サジェストを閉じる
+
 ### UI コンポーネント設計
 
 #### CommandSuggestions.tsx
@@ -162,93 +179,126 @@ export const helpCommand: SlashCommand = {
 ```typescript
 interface CommandSuggestionsProps {
   suggestions: CommandSuggestion[]
-  selectedIndex: number
+  visible: boolean
+  inputElement: HTMLInputElement | null
   onSelect: (command: SlashCommand) => void
-  position: { x: number; y: number }
+  onComplete: (commandName: string) => void
 }
 
 export default function CommandSuggestions({
   suggestions,
-  selectedIndex,
+  visible,
+  inputElement,
   onSelect,
-  position
+  onComplete
 }: CommandSuggestionsProps) {
-  return (
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  
+  // input要素の位置を計算してサジェストを配置
+  useEffect(() => {
+    if (inputElement && visible) {
+      const rect = inputElement.getBoundingClientRect()
+      setPosition({
+        x: rect.left,
+        y: rect.bottom + 4
+      })
+    }
+  }, [inputElement, visible])
+
+  if (!visible || suggestions.length === 0) return null
+
+  return createPortal(
     <div 
-      className="absolute z-50 bg-black border border-green-400/30 rounded"
-      style={{ top: position.y, left: position.x }}
+      className="fixed z-50 bg-gray-900 border border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+      style={{ 
+        left: position.x, 
+        top: position.y,
+        minWidth: '280px'
+      }}
     >
-      {suggestions.map((suggestion, index) => (
+      {suggestions.slice(0, 10).map((suggestion, index) => (
         <div
           key={suggestion.command.name}
           className={`
-            px-3 py-2 cursor-pointer
-            ${index === selectedIndex ? 'bg-green-400/20' : 'hover:bg-green-400/10'}
+            px-3 py-2 cursor-pointer border-b border-gray-800 last:border-b-0
+            ${index === 0 ? 'bg-blue-600/20 border-blue-500' : 'hover:bg-gray-800'}
+            transition-colors duration-150
           `}
           onClick={() => onSelect(suggestion.command)}
         >
-          <div className="text-green-400 font-mono">
-            /{suggestion.highlight}
+          <div className="flex items-start gap-2">
+            <span className="text-blue-400 font-mono text-sm">
+              /{suggestion.command.name}
+            </span>
           </div>
-          <div className="text-green-400/70 text-sm">
-            {suggestion.description}
+          <div className="text-gray-400 text-xs mt-1">
+            {suggestion.command.description}
           </div>
         </div>
       ))}
-    </div>
+    </div>,
+    document.body
   )
 }
 ```
 
-### YuiChat.tsx への統合
+#### サジェスト状態管理
 
 ```typescript
-// 状態管理
-const [showCommandSuggestions, setShowCommandSuggestions] = useState(false)
+// YuiChat.tsx内での状態管理
 const [commandSuggestions, setCommandSuggestions] = useState<CommandSuggestion[]>([])
-const [selectedCommandIndex, setSelectedCommandIndex] = useState(0)
+const [showCommandSuggestions, setShowCommandSuggestions] = useState(false)
+const inputRef = useRef<HTMLInputElement>(null)
 
-// コマンドマネージャー
-const commandManager = useMemo(() => new SlashCommandManager(), [])
-
-// 入力処理
+// 入力変更時のフィルタリング
 const handleInputChange = useCallback((value: string) => {
   setInputMessage(value)
   
-  if (commandManager.isCommand(value)) {
-    const suggestions = commandManager.getSuggestions(value)
-    setCommandSuggestions(suggestions)
+  if (value.startsWith('/') && value.length > 1) {
+    // "/"以降の文字でフィルタリング
+    const query = value.slice(1).toLowerCase()
+    const filtered = commandManager.getSuggestions(query)
+      .sort((a, b) => a.command.name.localeCompare(b.command.name))
+    
+    setCommandSuggestions(filtered)
+    setShowCommandSuggestions(filtered.length > 0)
+  } else if (value === '/') {
+    // "/" だけの場合は全コマンドを表示
+    const allCommands = commandManager.getAllCommands()
+      .filter(cmd => !cmd.hidden)
+      .map(cmd => ({ command: cmd, highlight: cmd.name }))
+      .sort((a, b) => a.command.name.localeCompare(b.command.name))
+    
+    setCommandSuggestions(allCommands)
     setShowCommandSuggestions(true)
-    setSelectedCommandIndex(0)
   } else {
     setShowCommandSuggestions(false)
   }
 }, [commandManager])
 
-// キー処理
-const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-  if (showCommandSuggestions) {
+// キーボード操作
+const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+  if (showCommandSuggestions && commandSuggestions.length > 0) {
     switch (e.key) {
-      case 'ArrowUp':
-        e.preventDefault()
-        setSelectedCommandIndex(prev => 
-          prev > 0 ? prev - 1 : commandSuggestions.length - 1
-        )
-        break
-      case 'ArrowDown':
-        e.preventDefault()
-        setSelectedCommandIndex(prev => 
-          prev < commandSuggestions.length - 1 ? prev + 1 : 0
-        )
-        break
       case 'Tab':
-      case 'Enter':
         e.preventDefault()
-        const selected = commandSuggestions[selectedCommandIndex]
-        if (selected) {
-          executeCommand(selected.command)
+        // 一番上のコマンドを補完
+        const topCommand = commandSuggestions[0]?.command
+        if (topCommand) {
+          setInputMessage(`/${topCommand.name} `)
+          setShowCommandSuggestions(false)
         }
         break
+        
+      case 'Enter':
+        e.preventDefault()
+        // 一番上のコマンドを実行
+        const selectedCommand = commandSuggestions[0]?.command
+        if (selectedCommand) {
+          executeCommand(selectedCommand)
+        }
+        break
+        
       case 'Escape':
         setShowCommandSuggestions(false)
         break
@@ -256,34 +306,98 @@ const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     return
   }
   
-  // 既存のキー処理...
-}, [showCommandSuggestions, commandSuggestions, selectedCommandIndex])
+  // 既存のEnterキー処理
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    sendMessage()
+  }
+}, [showCommandSuggestions, commandSuggestions, executeCommand, sendMessage])
+```
 
-// コマンド実行
-const executeCommand = useCallback(async (command: SlashCommand) => {
-  const context: ChatContext = {
-    clearSession,
-    addSystemMessage: (message: string) => {
-      addMessage({
-        id: Date.now().toString(),
-        type: 'system',
-        content: message,
-        timestamp: new Date()
-      })
-    },
-    setMessages,
-    // その他必要なコンテキスト
+#### CommandManager拡張
+
+コマンドサジェスト機能に必要なメソッドを追加：
+
+```typescript
+// src/lib/commands/CommandManager.ts
+class SlashCommandManager {
+  // ...既存のメソッド
+
+  /**
+   * 全コマンドを取得（サジェスト用）
+   */
+  getAllCommands(): SlashCommand[] {
+    return Array.from(this.commands.values())
   }
-  
-  try {
-    await command.execute([], context)
-  } catch (error) {
-    context.addSystemMessage(`❌ コマンド実行エラー: ${String(error)}`)
+
+  /**
+   * コマンドサジェストを取得（フィルタリング付き）
+   */
+  getSuggestions(query: string): CommandSuggestion[] {
+    const lowerQuery = query.toLowerCase()
+    
+    return this.getAllCommands()
+      .filter(cmd => !cmd.hidden)
+      .filter(cmd => 
+        cmd.name.toLowerCase().includes(lowerQuery) ||
+        cmd.description.toLowerCase().includes(lowerQuery)
+      )
+      .map(cmd => ({
+        command: cmd,
+        highlight: this.highlightMatch(cmd.name, query),
+        description: cmd.description
+      }))
   }
-  
-  setInputMessage('')
-  setShowCommandSuggestions(false)
-}, [clearSession, addMessage, setMessages])
+
+  /**
+   * マッチした部分をハイライト用に処理
+   */
+  private highlightMatch(text: string, query: string): string {
+    if (!query) return text
+    // 実装は後でハイライト機能が必要になった時に追加
+    return text
+  }
+}
+```
+
+### 実装の統合パターン
+
+YuiChat.tsx での最終的な統合例：
+
+```typescript
+return (
+  <div className="relative">
+    {/* 既存のチャットUI */}
+    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* メッセージリスト */}
+    </div>
+    
+    {/* 入力エリア */}
+    <div className="relative border-t border-green-400/20 p-4">
+      <input
+        ref={inputRef}
+        type="text"
+        value={inputMessage}
+        onChange={(e) => handleInputChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        className="w-full bg-transparent border border-green-400/30 rounded px-3 py-2"
+        placeholder="メッセージを入力するか、/ でコマンドを使用..."
+      />
+      
+      {/* コマンドサジェスト */}
+      <CommandSuggestions
+        suggestions={commandSuggestions}
+        visible={showCommandSuggestions}
+        inputElement={inputRef.current}
+        onSelect={(command) => executeCommand(command)}
+        onComplete={(commandName) => {
+          setInputMessage(`/${commandName} `)
+          setShowCommandSuggestions(false)
+        }}
+      />
+    </div>
+  </div>
+)
 ```
 
 ## テスト戦略
@@ -307,14 +421,16 @@ describe('SlashCommandManager', () => {
 ### 2. 結合テスト
 
 - YuiChatコンポーネントでのコマンド入力
-- UI サジェストの表示・選択
-- キーボードナビゲーション
+- UI サジェストの表示・選択・フィルタリング
+- キーボードナビゲーション（Tab補完、Enter実行）
+- input要素の位置に基づく適切なサジェスト配置
 
 ### 3. E2E テスト
 
-- ユーザーが `/clear` を入力して会話がクリアされる
-- コマンドサジェストが適切に表示される
-- 存在しないコマンドのエラーハンドリング
+- ユーザーが `/` を入力してサジェストが表示される
+- `/clear` を入力中にフィルタリングされる
+- Tabキーで補完、Enterキーで実行される
+- コマンド実行後に会話がクリアされる
 
 ## 実装フェーズ
 
@@ -324,11 +440,11 @@ describe('SlashCommandManager', () => {
 2. ✅ 基本コマンド（/clear, /help）の実装
 3. ✅ YuiChat.tsx への基本統合
 
-### Phase 2: UI 強化（2-3日）
+### Phase 2: コマンドサジェストUI実装（2-3日）
 
-1. ✅ CommandSuggestions コンポーネント
-2. ✅ キーボードナビゲーション
-3. ✅ ビジュアル改善
+1. 🔄 CommandSuggestions コンポーネント
+2. 🔄 キーボードナビゲーション（Tab補完、Enter実行）
+3. 🔄 リアルタイムフィルタリング
 
 ### Phase 3: 拡張機能（必要に応じて）
 

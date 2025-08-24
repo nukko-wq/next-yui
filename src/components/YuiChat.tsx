@@ -1,9 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { createChatClient } from '@/lib/chat-client'
 import type { ChatResponse, SessionStatus } from '@/lib/config'
+import { createCommandManager } from '@/lib/commands'
+import type { ChatContext } from '@/lib/commands'
 import TypewriterText from './TypewriterText'
 
 interface Message {
@@ -17,6 +19,7 @@ interface Message {
 
 export default function YuiChat() {
   const [chatClient] = useState(() => createChatClient())
+  const commandManager = useMemo(() => createCommandManager(), [])
   const [isConnected, setIsConnected] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
@@ -193,13 +196,42 @@ export default function YuiChat() {
     }
   }, [])
 
+  const clearSession = useCallback(async () => {
+    if (!isConnected) return
+    await chatClient.clearSession()
+    setMessages([])
+  }, [isConnected, chatClient])
+
+  // ChatContext を作成
+  const createChatContext = useCallback((): ChatContext => ({
+    clearSession: clearSession,
+    addMessage: addMessage,
+    setMessages: setMessages,
+    setInputMessage: setInputMessage,
+    sessionId: sessionId,
+    isConnected: isConnected
+  }), [clearSession, addMessage, sessionId, isConnected])
+
   const sendMessage = async () => {
     if (!isConnected || !inputMessage.trim()) return
+
+    const message = inputMessage.trim()
+
+    // スラッシュコマンドかどうかチェック
+    if (commandManager.isCommand(message)) {
+      const context = createChatContext()
+      const executed = await commandManager.execute(message, context)
+      
+      if (executed) {
+        setInputMessage('')
+        return
+      }
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: inputMessage.trim(),
+      content: message,
       timestamp: new Date(),
     }
 
@@ -214,12 +246,6 @@ export default function YuiChat() {
     }, 50)
 
     await chatClient.sendMessage(userMessage.content)
-  }
-
-  const clearSession = async () => {
-    if (!isConnected) return
-    await chatClient.clearSession()
-    setMessages([])
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
