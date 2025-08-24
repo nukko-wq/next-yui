@@ -491,7 +491,7 @@ export default function YuiChat() {
 
           {/* 入力エリア */}
           <div className="mt-6 mb-6 relative">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center border border-green-400/30 rounded px-3 py-2 space-x-2">
               <span className="text-green-300">&gt;</span>
               <input
                 ref={messageInputRef}
