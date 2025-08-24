@@ -7,6 +7,7 @@ interface TypewriterTextProps {
   delay?: number
   onComplete?: () => void
   onStart?: () => void
+  onTextChange?: (currentText: string) => void
   className?: string
   enableSound?: boolean
 }
@@ -16,6 +17,7 @@ export default function TypewriterText({
   delay = 30,
   onComplete,
   onStart,
+  onTextChange,
   className = '',
   enableSound = false,
 }: TypewriterTextProps) {
@@ -23,6 +25,7 @@ export default function TypewriterText({
     delay,
     onComplete,
     onStart,
+    onTextChange,
     enableSound,
   })
 

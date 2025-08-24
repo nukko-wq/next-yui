@@ -7,6 +7,7 @@ interface UseTypewriterOptions {
   delay?: number
   onComplete?: () => void
   onStart?: () => void
+  onTextChange?: (currentText: string) => void
   enableSound?: boolean
 }
 
@@ -14,7 +15,7 @@ export function useTypewriter(
   text: string,
   options: UseTypewriterOptions = {},
 ) {
-  const { delay = 30, onComplete, onStart, enableSound = false } = options
+  const { delay = 30, onComplete, onStart, onTextChange, enableSound = false } = options
   const { playTypeSound } = useTypeSound()
   const [displayedText, setDisplayedText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -23,11 +24,13 @@ export function useTypewriter(
   const completedRef = useRef(false)
   const onCompleteRef = useRef(onComplete)
   const onStartRef = useRef(onStart)
+  const onTextChangeRef = useRef(onTextChange)
   const currentTextRef = useRef('')
 
   // コールバックの参照を安定化
   onCompleteRef.current = onComplete
   onStartRef.current = onStart
+  onTextChangeRef.current = onTextChange
 
   useEffect(() => {
     console.log('useTypewriter useEffect triggered with text:', text)
@@ -69,6 +72,9 @@ export function useTypewriter(
         const newText = text.slice(0, indexRef.current + 1)
         console.log('Typing character:', indexRef.current, newText)
         setDisplayedText(newText)
+
+        // テキスト変更をコールバック
+        onTextChangeRef.current?.(newText)
 
         // 音声再生（有効な場合のみ）
         if (enableSound) {

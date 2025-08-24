@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import type { ChatResponse, SessionStatus } from '@/lib/config'
 import { createChatClient } from '@/lib/chat-client'
+import type { ChatResponse, SessionStatus } from '@/lib/config'
 import TypewriterText from './TypewriterText'
 
 interface Message {
@@ -24,14 +24,78 @@ export default function YuiChat() {
   const [uptime, setUptime] = useState('00:00:00')
   const [startTime] = useState(Date.now())
   const [avatarState, setAvatarState] = useState<'closed' | 'open'>('closed')
+  const [isUserScrolling, setIsUserScrolling] = useState(false)
+  const [isBotTyping, setIsBotTyping] = useState(false)
 
   const chatDisplayRef = useRef<HTMLDivElement>(null)
   const messageInputRef = useRef<HTMLInputElement>(null)
   const lipSyncTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const addMessage = useCallback((message: Message) => {
     setMessages((prev) => [...prev, message])
+    // 新しいメッセージが追加されたらスクロールする
+    setTimeout(() => {
+      if (!isUserScrolling && chatDisplayRef.current) {
+        chatDisplayRef.current.scrollTop = chatDisplayRef.current.scrollHeight
+      }
+    }, 0)
+  }, [isUserScrolling])
+
+  // ユーザーがスクロールしているかチェック
+  const isNearBottom = useCallback(() => {
+    if (!chatDisplayRef.current) return true
+    const { scrollTop, scrollHeight, clientHeight } = chatDisplayRef.current
+    // 下端から100px以内にいればtrueを返す
+    return scrollHeight - scrollTop - clientHeight < 100
   }, [])
+
+  // ユーザーが大きく上にスクロールしているかチェック（AI応答中の例外判定用）
+  const isFarFromBottom = useCallback(() => {
+    if (!chatDisplayRef.current) return false
+    const { scrollTop, scrollHeight, clientHeight } = chatDisplayRef.current
+    // 下端から200px以上離れている場合はtrue
+    return scrollHeight - scrollTop - clientHeight > 200
+  }, [])
+
+  // AI応答中の自動スクロール（タイプライター効果中）
+  const scrollDuringBotTyping = useCallback(() => {
+    if (!chatDisplayRef.current) return
+    
+    // AI応答中は、ユーザーが大きく上にスクロールしていない限り自動スクロール
+    if (isBotTyping && !isFarFromBottom()) {
+      chatDisplayRef.current.scrollTop = chatDisplayRef.current.scrollHeight
+    }
+  }, [isBotTyping, isFarFromBottom])
+
+
+  // ユーザーのスクロール操作を検知
+  const handleScroll = useCallback(() => {
+    // AI応答中は異なるスクロール制御ロジックを使用
+    if (isBotTyping) {
+      // AI応答中：大きく上にスクロールした場合のみ、自動スクロールを一時的に停止
+      // （isFarFromBottomで判定済み、特別な処理は不要）
+      return
+    }
+
+    // 通常時のスクロール制御
+    if (!isNearBottom()) {
+      setIsUserScrolling(true)
+    } else {
+      setIsUserScrolling(false)
+    }
+
+    // スクロール操作が止まったら一定時間後にスクロールフラグをリセット
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
+    }
+    
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (isNearBottom()) {
+        setIsUserScrolling(false)
+      }
+    }, 1000)
+  }, [isNearBottom, isBotTyping])
 
   // 口パク演出開始
   const startLipSync = useCallback(() => {
@@ -110,18 +174,21 @@ export default function YuiChat() {
     }
   }, [addMessage, chatClient])
 
-  // メッセージ追加時に自動スクロール
+  // 初回レンダリング時に下までスクロール
   useEffect(() => {
     if (chatDisplayRef.current) {
       chatDisplayRef.current.scrollTop = chatDisplayRef.current.scrollHeight
     }
-  })
+  }, [])
 
-  // コンポーネントのクリーンアップ時に口パクタイマーをクリア
+  // コンポーネントのクリーンアップ時にタイマーをクリア
   useEffect(() => {
     return () => {
       if (lipSyncTimerRef.current) {
         clearInterval(lipSyncTimerRef.current)
+      }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
       }
     }
   }, [])
@@ -204,6 +271,7 @@ export default function YuiChat() {
           {/* チャット表示 */}
           <div
             ref={chatDisplayRef}
+            onScroll={handleScroll}
             className="border border-green-400/30 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-green-400/30 scrollbar-track-black h-[calc(100vh-300px)] md:h-[calc(100vh-350px)] min-h-[300px] relative"
           >
             {messages.length === 0 ? (
@@ -258,13 +326,19 @@ export default function YuiChat() {
                               'Typewriter started for message:',
                               message.id,
                             )
+                            setIsBotTyping(true)
                             startLipSync()
+                          }}
+                          onTextChange={() => {
+                            // AI応答中の自動スクロール
+                            scrollDuringBotTyping()
                           }}
                           onComplete={() => {
                             console.log(
                               'Typewriter completed for message:',
                               message.id,
                             )
+                            setIsBotTyping(false)
                             stopLipSync()
                             setMessages((prev) =>
                               prev.map((msg) =>
