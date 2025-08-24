@@ -412,7 +412,7 @@ export default function YuiChat() {
           </div>
 
           {/* 入力エリア */}
-          <div className="mt-6 mb-6 space-y-2">
+          <div className="mt-6 mb-6">
             <div className="flex items-center space-x-2">
               <span className="text-green-300">&gt;</span>
               <input
@@ -424,21 +424,7 @@ export default function YuiChat() {
                 placeholder="メッセージを入力してください..."
                 disabled={!isConnected}
                 className="flex-1 bg-transparent border-none outline-none text-green-400 placeholder-green-400/50"
-                maxLength={10000}
               />
-            </div>
-
-            {/* コントロール */}
-            <div className="flex justify-between items-center text-xs text-green-400/60">
-              <div className="flex items-center space-x-4">
-                <span>
-                  <span className="text-green-300">ENTER</span> = Send
-                </span>
-                <span>
-                  <span className="text-green-300">CTRL+K</span> = Clear
-                </span>
-              </div>
-              <div>{inputMessage.length} / 10000</div>
             </div>
           </div>
         </main>
