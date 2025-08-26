@@ -8,6 +8,8 @@ import { createCommandManager } from '@/lib/commands'
 import type { ChatContext, CommandSuggestion } from '@/lib/commands'
 import TypewriterText from './TypewriterText'
 import CommandSuggestions from './CommandSuggestions'
+import SettingsMessage from './SettingsMessage'
+import { loadSettings, type SettingsState } from '@/lib/settings'
 
 interface Message {
   id: string
@@ -16,6 +18,7 @@ interface Message {
   timestamp: Date
   processing?: boolean
   isTyping?: boolean
+  isSettings?: boolean
 }
 
 export default function YuiChat() {
@@ -33,6 +36,7 @@ export default function YuiChat() {
   const [commandSuggestions, setCommandSuggestions] = useState<CommandSuggestion[]>([])
   const [showCommandSuggestions, setShowCommandSuggestions] = useState(false)
   const [isComposing, setIsComposing] = useState(false)
+  const [globalSettings, setGlobalSettings] = useState<SettingsState>(() => loadSettings())
 
   const chatDisplayRef = useRef<HTMLDivElement>(null)
   const messageInputRef = useRef<HTMLInputElement>(null)
@@ -280,6 +284,10 @@ export default function YuiChat() {
   }
 
   // コマンド実行
+  const handleSettingsChange = useCallback((newSettings: SettingsState) => {
+    setGlobalSettings(newSettings)
+  }, [])
+
   const executeCommand = useCallback(async (command: any) => {
     const context = createChatContext()
     try {
@@ -428,13 +436,22 @@ export default function YuiChat() {
                       }
                     `}
                     >
-                      {message.type === 'bot' && message.isTyping ? (
+                      {message.isSettings ? (
+                        <SettingsMessage
+                          messageId={message.id}
+                          onSettingsChange={handleSettingsChange}
+                          onClose={() => {
+                            setMessages(prev => prev.filter(msg => msg.id !== message.id))
+                          }}
+                          messageInputRef={messageInputRef}
+                        />
+                      ) : message.type === 'bot' && message.isTyping ? (
                         // タイプライター効果
                         <TypewriterText
                           key={`typewriter-${message.id}`}
                           text={message.content}
                           delay={50}
-                          enableSound={true}
+                          enableSound={globalSettings.soundEnabled}
                           onStart={() => {
                             console.log(
                               'Typewriter started for message:',
