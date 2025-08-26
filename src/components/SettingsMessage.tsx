@@ -7,7 +7,7 @@ interface SettingsMessageProps {
   messageId: string
   onSettingsChange: (settings: SettingsState) => void
   onClose: () => void
-  messageInputRef?: React.RefObject<HTMLInputElement>
+  messageInputRef?: React.RefObject<HTMLInputElement | null>
 }
 
 export default function SettingsMessage({ 
