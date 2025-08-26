@@ -32,6 +32,7 @@ export default function YuiChat() {
   const [isBotTyping, setIsBotTyping] = useState(false)
   const [commandSuggestions, setCommandSuggestions] = useState<CommandSuggestion[]>([])
   const [showCommandSuggestions, setShowCommandSuggestions] = useState(false)
+  const [isComposing, setIsComposing] = useState(false)
 
   const chatDisplayRef = useRef<HTMLDivElement>(null)
   const messageInputRef = useRef<HTMLInputElement>(null)
@@ -296,6 +297,15 @@ export default function YuiChat() {
     setShowCommandSuggestions(false)
   }, [createChatContext])
 
+  // Compositionイベントハンドラ（日本語入力対応）
+  const handleCompositionStart = useCallback(() => {
+    setIsComposing(true)
+  }, [])
+
+  const handleCompositionEnd = useCallback(() => {
+    setIsComposing(false)
+  }, [])
+
   // キーボード操作
   const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (showCommandSuggestions && commandSuggestions.length > 0) {
@@ -326,15 +336,15 @@ export default function YuiChat() {
       return
     }
     
-    // 既存のEnterキー処理
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // 既存のEnterキー処理（IME変換中はスキップ）
+    if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
       e.preventDefault()
       sendMessage()
     } else if (e.ctrlKey && e.key === 'k') {
       e.preventDefault()
       clearSession()
     }
-  }, [showCommandSuggestions, commandSuggestions, executeCommand, sendMessage, clearSession])
+  }, [showCommandSuggestions, commandSuggestions, executeCommand, sendMessage, clearSession, isComposing])
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('ja-JP', {
@@ -499,6 +509,8 @@ export default function YuiChat() {
                 value={inputMessage}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyPress}
+                onCompositionStart={handleCompositionStart}
+                onCompositionEnd={handleCompositionEnd}
                 placeholder="メッセージを入力してください..."
                 disabled={!isConnected}
                 className="flex-1 bg-transparent border-none outline-none text-green-400 placeholder-green-400/50"
