@@ -29,6 +29,7 @@ Claude Codeのスラッシュコマンド機能を参考に、next-yuiにコマ�
 | `/clear` | 会話履歴をクリア | 現在の会話セッションを削除 | Ctrl+K |
 | `/help` | ヘルプを表示 | 利用可能なコマンドの一覧表示 | - |
 | `/about` | YUIについて | YUIの情報と機能説明 | - |
+| `/setting` | 設定画面を開く | 音響設定などの切り替えUI表示 | - |
 
 ### Phase 2: 拡張コマンド（将来実装）
 
@@ -38,7 +39,6 @@ Claude Codeのスラッシュコマンド機能を参考に、next-yuiにコマ�
 | `/load` | 会話を読込 | 保存された会話を読み込み |
 | `/export` | 会話をエクスポート | 会話履歴をJSON/Markdownで出力 |
 | `/theme` | テーマ切替 | ダーク/ライトテーマの切り替え |
-| `/sound` | 音響切替 | タイプ音のオン/オフ |
 
 ## アーキテクチャ設計
 
@@ -463,6 +463,261 @@ describe('SlashCommandManager', () => {
 1. **入力検証**: コマンド引数の適切な検証
 2. **権限制御**: 管理者専用コマンドの実装時
 3. **XSS対策**: コマンド出力のサニタイズ
+
+## /setting コマンド詳細設計
+
+### 概要
+
+`/setting`コマンドは、YUIの各種設定を変更するためのインタラクティブUIを表示します。現在はサウンド設定（ドラクエ風SE）のオン/オフ機能を実装します。
+
+### UI仕様
+
+#### 1. 設定画面の表示
+
+コマンド実行時、チャットエリアに設定専用のインタラクティブメッセージを表示：
+
+```
+┌─────────────────────────────────────┐
+│ ⚙️  YUI SETTINGS                    │
+├─────────────────────────────────────┤
+│                                     │
+│ 🔊 Sound Effects                    │
+│ [ ◉ ON  ○ OFF ]                    │
+│                                     │
+│ Space/Tab: Toggle • Enter/Esc: Close │
+└─────────────────────────────────────┘
+```
+
+#### 2. 状態管理
+
+```typescript
+interface SettingsState {
+  soundEnabled: boolean
+  // 将来の設定項目用
+}
+
+const [settings, setSettings] = useState<SettingsState>({
+  soundEnabled: true // デフォルト値
+})
+```
+
+#### 3. ローカルストレージ連携
+
+設定変更はlocalStorageに自動保存：
+
+```typescript
+const SETTINGS_KEY = 'yui-settings'
+
+// 設定の読み込み
+const loadSettings = (): SettingsState => {
+  try {
+    const saved = localStorage.getItem(SETTINGS_KEY)
+    return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings
+  } catch {
+    return defaultSettings
+  }
+}
+
+// 設定の保存
+const saveSettings = (settings: SettingsState) => {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+}
+```
+
+### インタラクティブメッセージ仕様
+
+#### SettingsMessage コンポーネント
+
+設定専用のメッセージコンポーネントを作成：
+
+```typescript
+interface SettingsMessageProps {
+  messageId: string
+  onSettingsChange: (settings: SettingsState) => void
+  onClose: () => void
+}
+
+export function SettingsMessage({ messageId, onSettingsChange, onClose }: SettingsMessageProps) {
+  const [settings, setSettings] = useState(() => loadSettings())
+  const [isActive, setIsActive] = useState(true)
+
+  // キーボード操作
+  useEffect(() => {
+    if (!isActive) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case ' ':
+        case 'Tab':
+          e.preventDefault()
+          toggleSound()
+          break
+        case 'Enter':
+        case 'Escape':
+          e.preventDefault()
+          handleClose()
+          break
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isActive, settings])
+
+  const toggleSound = () => {
+    const newSettings = { ...settings, soundEnabled: !settings.soundEnabled }
+    setSettings(newSettings)
+    saveSettings(newSettings)
+    onSettingsChange(newSettings)
+  }
+
+  const handleClose = () => {
+    setIsActive(false)
+    onClose()
+  }
+
+  return (
+    <div className="border border-green-400/30 rounded p-4 bg-black/50">
+      <div className="text-center space-y-4">
+        <div className="text-green-300 font-bold">⚙️ YUI SETTINGS</div>
+        
+        <div className="space-y-2">
+          <div className="text-green-400">🔊 Sound Effects</div>
+          <div className="flex justify-center space-x-4">
+            <button
+              className={`px-3 py-1 rounded ${
+                settings.soundEnabled 
+                  ? 'bg-green-400/20 text-green-400 border border-green-400/50' 
+                  : 'text-green-400/50 border border-green-400/20'
+              }`}
+              onClick={toggleSound}
+            >
+              ◉ ON
+            </button>
+            <button
+              className={`px-3 py-1 rounded ${
+                !settings.soundEnabled 
+                  ? 'bg-green-400/20 text-green-400 border border-green-400/50' 
+                  : 'text-green-400/50 border border-green-400/20'
+              }`}
+              onClick={toggleSound}
+            >
+              ○ OFF
+            </button>
+          </div>
+        </div>
+
+        <div className="text-xs text-green-400/60">
+          Space/Tab: Toggle • Enter/Esc: Close
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+### /setting コマンド実装
+
+```typescript
+// src/lib/commands/commands/setting.ts
+import type { SlashCommand, ChatContext } from '../types'
+
+export const settingCommand: SlashCommand = {
+  name: 'setting',
+  description: '設定画面を開きます（サウンドのオン/オフなど）',
+  async execute(args: string[], context: ChatContext) {
+    // 設定用のインタラクティブメッセージを追加
+    const settingsMessage: Message = {
+      id: `settings-${Date.now()}`,
+      type: 'system',
+      content: '', // SettingsMessageコンポーネントが内容を制御
+      timestamp: new Date(),
+      isSettings: true // 設定メッセージフラグ
+    }
+
+    context.addMessage(settingsMessage)
+    context.setInputMessage('')
+  }
+}
+```
+
+### YuiChat.tsx統合
+
+#### 1. 設定状態の管理
+
+```typescript
+// YuiChat.tsx内に追加
+const [globalSettings, setGlobalSettings] = useState<SettingsState>(() => loadSettings())
+
+// 設定変更時のハンドラ
+const handleSettingsChange = useCallback((newSettings: SettingsState) => {
+  setGlobalSettings(newSettings)
+  // TypewriterTextコンポーネントに音響設定を反映
+}, [])
+```
+
+#### 2. メッセージレンダリングの拡張
+
+```typescript
+// メッセージ表示部分を拡張
+{messages.map((message) => (
+  <div key={message.id} className="space-y-1">
+    {/* 既存のメッセージヘッダー */}
+    
+    <div className="message-content">
+      {message.isSettings ? (
+        <SettingsMessage
+          messageId={message.id}
+          onSettingsChange={handleSettingsChange}
+          onClose={() => {
+            // 設定メッセージを閉じる処理
+            setMessages(prev => prev.filter(msg => msg.id !== message.id))
+          }}
+        />
+      ) : message.type === 'bot' && message.isTyping ? (
+        // 既存のTypewriterText
+        <TypewriterText
+          text={message.content}
+          enableSound={globalSettings.soundEnabled} // 設定を反映
+          // ...その他のprops
+        />
+      ) : (
+        message.content
+      )}
+    </div>
+  </div>
+))}
+```
+
+### キーボード操作の詳細仕様
+
+1. **スペースキー**: 設定値をトグル（ON ⇔ OFF）
+2. **Tabキー**: 設定値をトグル（スペースと同じ動作）
+3. **Enterキー**: 設定画面を閉じる
+4. **Escapeキー**: 設定画面を閉じる
+
+**重要な実装ポイント:**
+- 設定画面がアクティブな間は、通常のチャット入力のキーボードイベントを無効化
+- Document レベルでキーイベントをキャプチャして設定操作を優先
+- 設定画面を閉じた時に入力欄へのフォーカスを復帰
+
+### TypewriterText との連携
+
+```typescript
+// useTypewriter.ts の拡張
+interface TypewriterOptions {
+  enableSound?: boolean
+  // ...既存のオプション
+}
+
+// TypewriterText.tsx での使用
+<TypewriterText
+  text={message.content}
+  enableSound={globalSettings.soundEnabled}
+  onTextChange={scrollDuringBotTyping}
+  // ...その他
+/>
+```
 
 ---
 

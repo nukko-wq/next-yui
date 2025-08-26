@@ -12,6 +12,7 @@ export interface Message {
   timestamp: Date
   processing?: boolean
   isTyping?: boolean
+  isSettings?: boolean
 }
 
 export interface ChatContext {
